@@ -6,7 +6,7 @@ pub mod bitboard {
     //  bit :  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
     // board: A1 B1 C1 A2 B2 C2 A3 B3 C3 A4 B4 C4 D1 D2 D3 D4 D5 D6 E1 E2 E3 E4 E5 E6
     // '''
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct Bitboard {
         pub white_b: i32, // 先手
         pub black_b: i32, // 後手
