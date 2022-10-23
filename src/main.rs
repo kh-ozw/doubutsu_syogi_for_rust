@@ -1,14 +1,8 @@
 #[warn(unused_variables)]
-//use core::slice::SlicePattern;
-use std::fmt;
 use std::{
-    fmt::Display,
     io::{BufRead, BufReader, BufWriter, Write},
     net::{TcpStream, ToSocketAddrs},
-    time::Instant,
 };
-
-use crate::Bitboard::bitboard;
 
 mod Bitboard;
 
@@ -81,27 +75,27 @@ const E_HAND_MASK: i32 = 0b111111 << 18;
 const WIN_POINT: i32 = 10000;
 const LOSE_POINT: i32 = -10000;
 
-const EVAL_LIST: [[i32; 24]; 4] = [
-    //hiyoko
-    [
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, -3, -3, -3, -3, -3, -3,
-    ],
-    //zou
-    [
-        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7, 7, 7, 7, 7, 7, -7, -7, -7, -7, -7, -7,
-    ],
-    //kirin
-    [
-        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 8, 8, 8, 8, 8, 8, -8, -8, -8, -8, -8, -8,
-    ],
-    // niwatori
-    [
-        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    ],
-];
+// const EVAL_LIST: [[i32; 24]; 4] = [
+//     //hiyoko
+//     [
+//         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, -3, -3, -3, -3, -3, -3,
+//     ],
+//     //zou
+//     [
+//         5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7, 7, 7, 7, 7, 7, -7, -7, -7, -7, -7, -7,
+//     ],
+//     //kirin
+//     [
+//         6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 8, 8, 8, 8, 8, 8, -8, -8, -8, -8, -8, -8,
+//     ],
+//     // niwatori
+//     [
+//         6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//     ],
+// ];
 
-const PIECE_NUM: usize = 12;
-const DEPTH: i32 = 4;
+// const PIECE_NUM: usize = 12;
+const DEPTH: i32 = 10;
 
 fn main() {
     // test
@@ -140,45 +134,45 @@ fn main() {
     // let end = start.elapsed();
     // println!("{}", end.subsec_nanos());
 
-    let start = Instant::now();
-    //for i in 0..100000 {
-    let mut board = Bitboard::bitboard::Bitboard {
-        black_b: (1 << 3) + (1 << 5),
-        white_b: (1 << 10) + 1,
-        kb: 1,
-        rb: 1 << 3,
-        bb: 1 << 5,
-        pb: 1 << 10,
-        ppb: 0,
-    };
+    // let start = Instant::now();
+    // //for i in 0..100000 {
+    // let mut board = Bitboard::bitboard::Bitboard {
+    //     black_b: (1 << 3) + (1 << 5),
+    //     white_b: (1 << 10) + 1,
+    //     kb: 1,
+    //     rb: 1 << 3,
+    //     bb: 1 << 5,
+    //     pb: 1 << 10,
+    //     ppb: 0,
+    // };
     // println!("{:b}", board.white_b);
     // println!("{:b}", board.black_b);
     // println!("{:b}", board.white_b & -board.white_b);
     // println!("{:b}", -1);
     // println!("{:b}", board.white_b - (board.white_b & -board.white_b));
     // println!("{:b}", 0b111 << 6);
-    println!("{}", if board.white_b != 0 { 10 } else { 11 });
-    println!("{:b}", !-board.bb);
-    println!("{}", EVAL_LIST[0][board.kb as usize]);
+    // println!("{}", if board.white_b != 0 { 10 } else { 11 });
+    // println!("{:b}", !-board.bb);
+    // println!("{}", EVAL_LIST[0][board.kb as usize]);
 
-    let src = 1 << 3;
-    let dst = 1 << 9;
-    if board.kb & !src != 0 {
-        board.kb = board.kb & !src;
-        board.white_b = board.white_b | dst;
-    } else if board.rb & !src != 0 {
-        board.rb = board.rb & !src;
-        board.white_b = board.white_b | dst;
-    } else if board.bb & !src != 0 {
-        board.bb = board.bb & !src;
-        board.white_b = board.white_b | dst;
-    } else if board.pb & !src != 0 {
-        board.pb = board.pb & !src;
-        board.white_b = board.white_b | dst;
-    } else if board.ppb & !src != 0 {
-        board.ppb = board.ppb & !src;
-        board.white_b = board.white_b | dst;
-    }
+    // let src = 1 << 3;
+    // let dst = 1 << 9;
+    // if board.kb & !src != 0 {
+    //     board.kb = board.kb & !src;
+    //     board.white_b = board.white_b | dst;
+    // } else if board.rb & !src != 0 {
+    //     board.rb = board.rb & !src;
+    //     board.white_b = board.white_b | dst;
+    // } else if board.bb & !src != 0 {
+    //     board.bb = board.bb & !src;
+    //     board.white_b = board.white_b | dst;
+    // } else if board.pb & !src != 0 {
+    //     board.pb = board.pb & !src;
+    //     board.white_b = board.white_b | dst;
+    // } else if board.ppb & !src != 0 {
+    //     board.ppb = board.ppb & !src;
+    //     board.white_b = board.white_b | dst;
+    // }
     //}
 
     // let end = start.elapsed();
@@ -299,9 +293,10 @@ fn main() {
                             .read_until(b'\n', &mut board_vec)
                             .expect("Receive failure.");
 
-                        let board = make_board(&mut board_vec);
+                        let board = make_bitboard(&mut board_vec);
                         let clone_board = board.clone();
                         let depth = DEPTH;
+                        // println!("{}", board);
                         let best_node: Node =
                             nega_scout(&board, &bef_board, is_player1, depth, -50000, 50000);
 
@@ -318,6 +313,7 @@ fn main() {
                             .expect("Receive failure.");
 
                         let next_board = make_moved_board(&board, best_node.best_move, is_player1);
+                        //println!("{}", next_board);
                         let point = judge(&next_board, &clone_board, is_player1);
                         bef_board = clone_board;
                         if point == WIN_POINT {
@@ -327,7 +323,9 @@ fn main() {
                             println!("you lose!");
                             break;
                         }
-                        println!("---");
+                        //println!("{}", next_board);
+                        //println!("{}, {}", move_str, best_node.point);
+                        // println!("---");
 
                         //相手のターンが終わるまで待つ
                         loop {
@@ -354,7 +352,7 @@ pub fn write_socket(writer: &mut BufWriter<&TcpStream>, msg: &str) {
     let _ = writer.flush();
 }
 
-pub fn make_board(board_vec: &mut Vec<u8>) -> Bitboard::bitboard::Bitboard {
+pub fn make_bitboard(board_vec: &mut Vec<u8>) -> Bitboard::bitboard::Bitboard {
     let mut white_b: i32 = 0;
     let mut black_b: i32 = 0;
     let mut kb: i32 = 0;
@@ -371,7 +369,7 @@ pub fn make_board(board_vec: &mut Vec<u8>) -> Bitboard::bitboard::Bitboard {
         let b_iter = iter.trim().as_bytes();
         if b_iter[3] != b'-' {
             //ex. "A1 g2"
-            let p = shift((b_iter[0], b_iter[1]));
+            let p = piece_to_pos((b_iter[0], b_iter[1]));
             if b_iter[4] == b'1' {
                 white_b |= 1 << p;
             } else if b_iter[4] == b'2' {
@@ -406,7 +404,9 @@ pub fn make_board(board_vec: &mut Vec<u8>) -> Bitboard::bitboard::Bitboard {
     }
 }
 
-pub fn shift(s: (u8, u8)) -> i32 {
+//pub fn make_board_map(board: &Bitboard::bitboard::Bitboard) -> &mut Vec<u8> {}
+
+pub fn piece_to_pos(s: (u8, u8)) -> i32 {
     match s {
         (b'A', b'1') => A1_INDEX_DEC,
         (b'B', b'1') => B1_INDEX_DEC,
@@ -433,6 +433,36 @@ pub fn shift(s: (u8, u8)) -> i32 {
         (b'E', b'5') => E5_INDEX_DEC,
         (b'E', b'6') => E6_INDEX_DEC,
         _ => 0,
+    }
+}
+
+pub fn pos_to_piece(s: i32) -> (u8, u8) {
+    match s {
+        A1_INDEX_DEC => (b'A', b'1'),
+        B1_INDEX_DEC => (b'B', b'1'),
+        C1_INDEX_DEC => (b'C', b'1'),
+        A2_INDEX_DEC => (b'A', b'2'),
+        B2_INDEX_DEC => (b'B', b'2'),
+        C2_INDEX_DEC => (b'C', b'2'),
+        A3_INDEX_DEC => (b'A', b'3'),
+        B3_INDEX_DEC => (b'B', b'3'),
+        C3_INDEX_DEC => (b'C', b'3'),
+        A4_INDEX_DEC => (b'A', b'4'),
+        B4_INDEX_DEC => (b'B', b'4'),
+        C4_INDEX_DEC => (b'C', b'4'),
+        D1_INDEX_DEC => (b'D', b'1'),
+        D2_INDEX_DEC => (b'D', b'2'),
+        D3_INDEX_DEC => (b'D', b'3'),
+        D4_INDEX_DEC => (b'D', b'4'),
+        D5_INDEX_DEC => (b'D', b'5'),
+        D6_INDEX_DEC => (b'D', b'6'),
+        E1_INDEX_DEC => (b'E', b'1'),
+        E2_INDEX_DEC => (b'E', b'2'),
+        E3_INDEX_DEC => (b'E', b'3'),
+        E4_INDEX_DEC => (b'E', b'4'),
+        E5_INDEX_DEC => (b'E', b'5'),
+        E6_INDEX_DEC => (b'E', b'6'),
+        _ => (0, 0),
     }
 }
 
@@ -473,12 +503,10 @@ pub fn make_moved_board(
                 board.pb = (board.pb & !dst) | hand_posi;
             } else if board.ppb & dst != 0 {
                 // ニワトリの盤面の駒を消し、取った駒を手持ちに加える（ヒヨコとして）
-                board.ppb = (board.ppb & !dst) | hand_posi;
+                board.ppb = board.ppb & !dst;
+                board.pb = board.pb | hand_posi;
             }
             //println!("{}", board);
-        } else {
-            // 先手の盤面を更新
-            board.white_b = board.white_b & !src | dst;
         }
         // 先手の盤面を更新
         board.white_b = board.white_b & !src | dst;
@@ -493,12 +521,34 @@ pub fn make_moved_board(
             board.bb = board.bb & !src | dst;
         // ヒヨコの盤面を更新
         } else if board.pb & src != 0 {
-            board.pb = board.pb & !src | dst;
+            if (src & D_HAND_MASK == 0) & (dst == A1_INDEX || dst == B1_INDEX || dst == C1_INDEX) {
+                board.pb = board.pb & !src;
+                board.ppb = board.ppb | dst;
+            } else {
+                board.pb = board.pb & !src | dst;
+            }
         // ニワトリの盤面を更新
         } else if board.ppb & src != 0 {
             board.ppb = board.ppb & !src | dst;
         }
         // println!("{}", board);
+
+        // 打った駒が手ごまの場合
+        if src & D_HAND_MASK != 0 {
+            let shift_bits = !(src - 1) & D_HAND_MASK;
+            // 打った手駒のあった場所より右側に駒があった時、その駒たちをずらす（打った駒のD列の数字より大きい数字のマスに駒があるとき）
+            if shift_bits & board.white_b != 0 {
+                let non_shift_bits = (src - 1) & D_HAND_MASK;
+                board.white_b = (board.white_b & (!D_HAND_MASK | non_shift_bits))
+                    | ((board.white_b & shift_bits) >> 1);
+                board.rb =
+                    (board.rb & (!D_HAND_MASK | non_shift_bits)) | ((board.rb & shift_bits) >> 1);
+                board.bb =
+                    (board.bb & (!D_HAND_MASK | non_shift_bits)) | ((board.bb & shift_bits) >> 1);
+                board.pb =
+                    (board.pb & (!D_HAND_MASK | non_shift_bits)) | ((board.pb & shift_bits) >> 1);
+            }
+        }
     }
     // プレイヤー2の場合
     else {
@@ -526,14 +576,14 @@ pub fn make_moved_board(
                 board.pb = (board.pb & !dst) | hand_posi;
             } else if board.ppb & dst != 0 {
                 // ニワトリの盤面の駒を消し、取った駒を手持ちに加える（ヒヨコとして）
-                board.ppb = (board.ppb & !dst) | hand_posi;
+                board.ppb = board.ppb & !dst;
+                board.pb = board.pb | hand_posi;
             }
             //println!("{}", board);
-        } else {
-            // 後手の盤面を更新
-            board.black_b = board.black_b & !src | dst;
-            //println!("{}", board);
         }
+        // 後手の盤面を更新
+        board.black_b = board.black_b & !src | dst;
+        //println!("{}", board);
         // ライオンの盤面を更新
         if board.kb & src != 0 {
             board.kb = board.kb & !src | dst;
@@ -545,12 +595,34 @@ pub fn make_moved_board(
             board.bb = board.bb & !src | dst;
         // ヒヨコの盤面を更新
         } else if board.pb & src != 0 {
-            board.pb = board.pb & !src | dst;
+            if (src & E_HAND_MASK == 0) & (dst == A4_INDEX || dst == B4_INDEX || dst == C4_INDEX) {
+                board.pb = board.pb & !src;
+                board.ppb = board.ppb | dst;
+            } else {
+                board.pb = board.pb & !src | dst;
+            }
         // ニワトリの盤面を更新
         } else if board.ppb & src != 0 {
             board.ppb = board.ppb & !src | dst;
         }
         //println!("{}", board);
+
+        // 打った駒が手ごまの場合
+        if src & E_HAND_MASK != 0 {
+            let shift_bits = !(src - 1) & E_HAND_MASK;
+            // 打った手駒のあった場所より右側に駒があった時、その駒たちをずらす（打った駒のD列の数字より大きい数字のマスに駒があるとき）
+            if shift_bits & board.black_b != 0 {
+                let non_shift_bits = (src - 1) & E_HAND_MASK;
+                board.black_b = (board.black_b & (!E_HAND_MASK | non_shift_bits))
+                    | ((board.black_b & shift_bits) >> 1);
+                board.rb =
+                    (board.rb & (!E_HAND_MASK | non_shift_bits)) | ((board.rb & shift_bits) >> 1);
+                board.bb =
+                    (board.bb & (!E_HAND_MASK | non_shift_bits)) | ((board.bb & shift_bits) >> 1);
+                board.pb =
+                    (board.pb & (!E_HAND_MASK | non_shift_bits)) | ((board.pb & shift_bits) >> 1);
+            }
+        }
     }
     board
 }
@@ -1708,126 +1780,131 @@ pub fn next_move_list(board: &Bitboard::bitboard::Bitboard, is_player1: bool) ->
         }
 
         // 持ち駒を打つ場合
-        let target_board = !board.white_b;
+        let target_board = !(board.black_b | board.white_b);
 
         // 1pヒヨコ
         if board.pb & D_HAND_MASK != 0 {
-            let src_index = (board.pb & D_HAND_MASK) & (-board.pb & D_HAND_MASK);
-            if target_board & A1_INDEX == 1 {
-                next_move_list.push((src_index, A1_INDEX));
+            // println!("{:b}", board.pb & D_HAND_MASK);
+            // println!("{:b}", -(board.pb & D_HAND_MASK));
+            // println!("{}", (board.pb & D_HAND_MASK) & -(board.pb & D_HAND_MASK));
+            let hand_index = (board.pb & D_HAND_MASK) & -(board.pb & D_HAND_MASK);
+            // println!("{}", board);
+            // println!("{}", target_board & A1_INDEX);
+            if target_board & A1_INDEX != 0 {
+                next_move_list.push((hand_index, A1_INDEX));
             }
-            if target_board & A2_INDEX == 1 {
-                next_move_list.push((src_index, A2_INDEX));
+            if target_board & A2_INDEX != 0 {
+                next_move_list.push((hand_index, A2_INDEX));
             }
-            if target_board & A3_INDEX == 1 {
-                next_move_list.push((src_index, A3_INDEX));
+            if target_board & A3_INDEX != 0 {
+                next_move_list.push((hand_index, A3_INDEX));
             }
-            if target_board & A4_INDEX == 1 {
-                next_move_list.push((src_index, A4_INDEX));
+            if target_board & A4_INDEX != 0 {
+                next_move_list.push((hand_index, A4_INDEX));
             }
-            if target_board & B1_INDEX == 1 {
-                next_move_list.push((src_index, B1_INDEX));
+            if target_board & B1_INDEX != 0 {
+                next_move_list.push((hand_index, B1_INDEX));
             }
-            if target_board & B2_INDEX == 1 {
-                next_move_list.push((src_index, B2_INDEX));
+            if target_board & B2_INDEX != 0 {
+                next_move_list.push((hand_index, B2_INDEX));
             }
-            if target_board & B3_INDEX == 1 {
-                next_move_list.push((src_index, B3_INDEX));
+            if target_board & B3_INDEX != 0 {
+                next_move_list.push((hand_index, B3_INDEX));
             }
-            if target_board & B4_INDEX == 1 {
-                next_move_list.push((src_index, B4_INDEX));
+            if target_board & B4_INDEX != 0 {
+                next_move_list.push((hand_index, B4_INDEX));
             }
-            if target_board & C1_INDEX == 1 {
-                next_move_list.push((src_index, C1_INDEX));
+            if target_board & C1_INDEX != 0 {
+                next_move_list.push((hand_index, C1_INDEX));
             }
-            if target_board & C2_INDEX == 1 {
-                next_move_list.push((src_index, C2_INDEX));
+            if target_board & C2_INDEX != 0 {
+                next_move_list.push((hand_index, C2_INDEX));
             }
-            if target_board & C3_INDEX == 1 {
-                next_move_list.push((src_index, C3_INDEX));
+            if target_board & C3_INDEX != 0 {
+                next_move_list.push((hand_index, C3_INDEX));
             }
-            if target_board & C4_INDEX == 1 {
-                next_move_list.push((src_index, C4_INDEX));
+            if target_board & C4_INDEX != 0 {
+                next_move_list.push((hand_index, C4_INDEX));
             }
         }
         // 1pゾウ
         if board.bb & D_HAND_MASK != 0 {
-            let src_index = (board.bb & D_HAND_MASK) & (-board.bb & D_HAND_MASK);
-            if target_board & A1_INDEX == 1 {
-                next_move_list.push((src_index, A1_INDEX));
+            let hand_index = (board.bb & D_HAND_MASK) & -(board.bb & D_HAND_MASK);
+            if target_board & A1_INDEX != 0 {
+                next_move_list.push((hand_index, A1_INDEX));
             }
-            if target_board & A2_INDEX == 1 {
-                next_move_list.push((src_index, A2_INDEX));
+            if target_board & A2_INDEX != 0 {
+                next_move_list.push((hand_index, A2_INDEX));
             }
-            if target_board & A3_INDEX == 1 {
-                next_move_list.push((src_index, A3_INDEX));
+            if target_board & A3_INDEX != 0 {
+                next_move_list.push((hand_index, A3_INDEX));
             }
-            if target_board & A4_INDEX == 1 {
-                next_move_list.push((src_index, A4_INDEX));
+            if target_board & A4_INDEX != 0 {
+                next_move_list.push((hand_index, A4_INDEX));
             }
-            if target_board & B1_INDEX == 1 {
-                next_move_list.push((src_index, B1_INDEX));
+            if target_board & B1_INDEX != 0 {
+                next_move_list.push((hand_index, B1_INDEX));
             }
-            if target_board & B2_INDEX == 1 {
-                next_move_list.push((src_index, B2_INDEX));
+            if target_board & B2_INDEX != 0 {
+                next_move_list.push((hand_index, B2_INDEX));
             }
-            if target_board & B3_INDEX == 1 {
-                next_move_list.push((src_index, B3_INDEX));
+            if target_board & B3_INDEX != 0 {
+                next_move_list.push((hand_index, B3_INDEX));
             }
-            if target_board & B4_INDEX == 1 {
-                next_move_list.push((src_index, B4_INDEX));
+            if target_board & B4_INDEX != 0 {
+                next_move_list.push((hand_index, B4_INDEX));
             }
-            if target_board & C1_INDEX == 1 {
-                next_move_list.push((src_index, C1_INDEX));
+            if target_board & C1_INDEX != 0 {
+                next_move_list.push((hand_index, C1_INDEX));
             }
-            if target_board & C2_INDEX == 1 {
-                next_move_list.push((src_index, C2_INDEX));
+            if target_board & C2_INDEX != 0 {
+                next_move_list.push((hand_index, C2_INDEX));
             }
-            if target_board & C3_INDEX == 1 {
-                next_move_list.push((src_index, C3_INDEX));
+            if target_board & C3_INDEX != 0 {
+                next_move_list.push((hand_index, C3_INDEX));
             }
-            if target_board & C4_INDEX == 1 {
-                next_move_list.push((src_index, C4_INDEX));
+            if target_board & C4_INDEX != 0 {
+                next_move_list.push((hand_index, C4_INDEX));
             }
         }
         // 1pキリン
         if board.rb & D_HAND_MASK != 0 {
-            let src_index = (board.rb & D_HAND_MASK) & (-board.rb & D_HAND_MASK);
-            if target_board & A1_INDEX == 1 {
-                next_move_list.push((src_index, A1_INDEX));
+            let hand_index = (board.rb & D_HAND_MASK) & -(board.rb & D_HAND_MASK);
+            if target_board & A1_INDEX != 0 {
+                next_move_list.push((hand_index, A1_INDEX));
             }
-            if target_board & A2_INDEX == 1 {
-                next_move_list.push((src_index, A2_INDEX));
+            if target_board & A2_INDEX != 0 {
+                next_move_list.push((hand_index, A2_INDEX));
             }
-            if target_board & A3_INDEX == 1 {
-                next_move_list.push((src_index, A3_INDEX));
+            if target_board & A3_INDEX != 0 {
+                next_move_list.push((hand_index, A3_INDEX));
             }
-            if target_board & A4_INDEX == 1 {
-                next_move_list.push((src_index, A4_INDEX));
+            if target_board & A4_INDEX != 0 {
+                next_move_list.push((hand_index, A4_INDEX));
             }
-            if target_board & B1_INDEX == 1 {
-                next_move_list.push((src_index, B1_INDEX));
+            if target_board & B1_INDEX != 0 {
+                next_move_list.push((hand_index, B1_INDEX));
             }
-            if target_board & B2_INDEX == 1 {
-                next_move_list.push((src_index, B2_INDEX));
+            if target_board & B2_INDEX != 0 {
+                next_move_list.push((hand_index, B2_INDEX));
             }
-            if target_board & B3_INDEX == 1 {
-                next_move_list.push((src_index, B3_INDEX));
+            if target_board & B3_INDEX != 0 {
+                next_move_list.push((hand_index, B3_INDEX));
             }
-            if target_board & B4_INDEX == 1 {
-                next_move_list.push((src_index, B4_INDEX));
+            if target_board & B4_INDEX != 0 {
+                next_move_list.push((hand_index, B4_INDEX));
             }
-            if target_board & C1_INDEX == 1 {
-                next_move_list.push((src_index, C1_INDEX));
+            if target_board & C1_INDEX != 0 {
+                next_move_list.push((hand_index, C1_INDEX));
             }
-            if target_board & C2_INDEX == 1 {
-                next_move_list.push((src_index, C2_INDEX));
+            if target_board & C2_INDEX != 0 {
+                next_move_list.push((hand_index, C2_INDEX));
             }
-            if target_board & C3_INDEX == 1 {
-                next_move_list.push((src_index, C3_INDEX));
+            if target_board & C3_INDEX != 0 {
+                next_move_list.push((hand_index, C3_INDEX));
             }
-            if target_board & C4_INDEX == 1 {
-                next_move_list.push((src_index, C4_INDEX));
+            if target_board & C4_INDEX != 0 {
+                next_move_list.push((hand_index, C4_INDEX));
             }
         }
     } else {
@@ -1840,7 +1917,7 @@ pub fn next_move_list(board: &Bitboard::bitboard::Bitboard, is_player1: bool) ->
             match target_board {
                 A1_INDEX => {
                     if player_board & A2_INDEX == 0 {
-                        next_move_list.push((A4_INDEX, A2_INDEX))
+                        next_move_list.push((A1_INDEX, A2_INDEX))
                     }
                 }
                 A2_INDEX => {
@@ -1873,17 +1950,17 @@ pub fn next_move_list(board: &Bitboard::bitboard::Bitboard, is_player1: bool) ->
                 //B4_INDEX => _,
                 C1_INDEX => {
                     if player_board & C2_INDEX == 0 {
-                        next_move_list.push((C3_INDEX, C2_INDEX))
+                        next_move_list.push((C1_INDEX, C2_INDEX))
                     }
                 }
                 C2_INDEX => {
                     if player_board & C3_INDEX == 0 {
-                        next_move_list.push((C4_INDEX, C3_INDEX))
+                        next_move_list.push((C2_INDEX, C3_INDEX))
                     }
                 }
                 C3_INDEX => {
                     if player_board & C4_INDEX == 0 {
-                        next_move_list.push((C2_INDEX, C4_INDEX))
+                        next_move_list.push((C3_INDEX, C4_INDEX))
                     }
                 }
                 //C4_INDEX => _,
@@ -2981,126 +3058,126 @@ pub fn next_move_list(board: &Bitboard::bitboard::Bitboard, is_player1: bool) ->
         }
 
         // 持ち駒を打つ場合
-        let target_board = !board.black_b;
+        let target_board = !(board.black_b | board.white_b);
 
-        // 1pヒヨコ
+        // 2pヒヨコ
         if board.pb & E_HAND_MASK != 0 {
-            let src_index = (board.pb & E_HAND_MASK) & (-board.pb & E_HAND_MASK);
-            if target_board & A1_INDEX == 1 {
-                next_move_list.push((src_index, A1_INDEX));
+            let hand_index = (board.pb & E_HAND_MASK) & -(board.pb & E_HAND_MASK);
+            if target_board & A1_INDEX != 0 {
+                next_move_list.push((hand_index, A1_INDEX));
             }
-            if target_board & A2_INDEX == 1 {
-                next_move_list.push((src_index, A2_INDEX));
+            if target_board & A2_INDEX != 0 {
+                next_move_list.push((hand_index, A2_INDEX));
             }
-            if target_board & A3_INDEX == 1 {
-                next_move_list.push((src_index, A3_INDEX));
+            if target_board & A3_INDEX != 0 {
+                next_move_list.push((hand_index, A3_INDEX));
             }
-            if target_board & A4_INDEX == 1 {
-                next_move_list.push((src_index, A4_INDEX));
+            if target_board & A4_INDEX != 0 {
+                next_move_list.push((hand_index, A4_INDEX));
             }
-            if target_board & B1_INDEX == 1 {
-                next_move_list.push((src_index, B1_INDEX));
+            if target_board & B1_INDEX != 0 {
+                next_move_list.push((hand_index, B1_INDEX));
             }
-            if target_board & B2_INDEX == 1 {
-                next_move_list.push((src_index, B2_INDEX));
+            if target_board & B2_INDEX != 0 {
+                next_move_list.push((hand_index, B2_INDEX));
             }
-            if target_board & B3_INDEX == 1 {
-                next_move_list.push((src_index, B3_INDEX));
+            if target_board & B3_INDEX != 0 {
+                next_move_list.push((hand_index, B3_INDEX));
             }
-            if target_board & B4_INDEX == 1 {
-                next_move_list.push((src_index, B4_INDEX));
+            if target_board & B4_INDEX != 0 {
+                next_move_list.push((hand_index, B4_INDEX));
             }
-            if target_board & C1_INDEX == 1 {
-                next_move_list.push((src_index, C1_INDEX));
+            if target_board & C1_INDEX != 0 {
+                next_move_list.push((hand_index, C1_INDEX));
             }
-            if target_board & C2_INDEX == 1 {
-                next_move_list.push((src_index, C2_INDEX));
+            if target_board & C2_INDEX != 0 {
+                next_move_list.push((hand_index, C2_INDEX));
             }
-            if target_board & C3_INDEX == 1 {
-                next_move_list.push((src_index, C3_INDEX));
+            if target_board & C3_INDEX != 0 {
+                next_move_list.push((hand_index, C3_INDEX));
             }
-            if target_board & C4_INDEX == 1 {
-                next_move_list.push((src_index, C4_INDEX));
+            if target_board & C4_INDEX != 0 {
+                next_move_list.push((hand_index, C4_INDEX));
             }
         }
-        // 1pゾウ
+        // 2pゾウ
         if board.bb & E_HAND_MASK != 0 {
-            let src_index = (board.bb & E_HAND_MASK) & (-board.bb & E_HAND_MASK);
-            if target_board & A1_INDEX == 1 {
-                next_move_list.push((src_index, A1_INDEX));
+            let hand_index = (board.bb & E_HAND_MASK) & -(board.bb & E_HAND_MASK);
+            if target_board & A1_INDEX != 0 {
+                next_move_list.push((hand_index, A1_INDEX));
             }
-            if target_board & A2_INDEX == 1 {
-                next_move_list.push((src_index, A2_INDEX));
+            if target_board & A2_INDEX != 0 {
+                next_move_list.push((hand_index, A2_INDEX));
             }
-            if target_board & A3_INDEX == 1 {
-                next_move_list.push((src_index, A3_INDEX));
+            if target_board & A3_INDEX != 0 {
+                next_move_list.push((hand_index, A3_INDEX));
             }
-            if target_board & A4_INDEX == 1 {
-                next_move_list.push((src_index, A4_INDEX));
+            if target_board & A4_INDEX != 0 {
+                next_move_list.push((hand_index, A4_INDEX));
             }
-            if target_board & B1_INDEX == 1 {
-                next_move_list.push((src_index, B1_INDEX));
+            if target_board & B1_INDEX != 0 {
+                next_move_list.push((hand_index, B1_INDEX));
             }
-            if target_board & B2_INDEX == 1 {
-                next_move_list.push((src_index, B2_INDEX));
+            if target_board & B2_INDEX != 0 {
+                next_move_list.push((hand_index, B2_INDEX));
             }
-            if target_board & B3_INDEX == 1 {
-                next_move_list.push((src_index, B3_INDEX));
+            if target_board & B3_INDEX != 0 {
+                next_move_list.push((hand_index, B3_INDEX));
             }
-            if target_board & B4_INDEX == 1 {
-                next_move_list.push((src_index, B4_INDEX));
+            if target_board & B4_INDEX != 0 {
+                next_move_list.push((hand_index, B4_INDEX));
             }
-            if target_board & C1_INDEX == 1 {
-                next_move_list.push((src_index, C1_INDEX));
+            if target_board & C1_INDEX != 0 {
+                next_move_list.push((hand_index, C1_INDEX));
             }
-            if target_board & C2_INDEX == 1 {
-                next_move_list.push((src_index, C2_INDEX));
+            if target_board & C2_INDEX != 0 {
+                next_move_list.push((hand_index, C2_INDEX));
             }
-            if target_board & C3_INDEX == 1 {
-                next_move_list.push((src_index, C3_INDEX));
+            if target_board & C3_INDEX != 0 {
+                next_move_list.push((hand_index, C3_INDEX));
             }
-            if target_board & C4_INDEX == 1 {
-                next_move_list.push((src_index, C4_INDEX));
+            if target_board & C4_INDEX != 0 {
+                next_move_list.push((hand_index, C4_INDEX));
             }
         }
-        // 1pキリン
+        // 2pキリン
         if board.rb & E_HAND_MASK != 0 {
-            let src_index = (board.rb & E_HAND_MASK) & (-board.rb & E_HAND_MASK);
-            if target_board & A1_INDEX == 1 {
-                next_move_list.push((src_index, A1_INDEX));
+            let hand_index = (board.rb & E_HAND_MASK) & -(board.rb & E_HAND_MASK);
+            if target_board & A1_INDEX != 0 {
+                next_move_list.push((hand_index, A1_INDEX));
             }
-            if target_board & A2_INDEX == 1 {
-                next_move_list.push((src_index, A2_INDEX));
+            if target_board & A2_INDEX != 0 {
+                next_move_list.push((hand_index, A2_INDEX));
             }
-            if target_board & A3_INDEX == 1 {
-                next_move_list.push((src_index, A3_INDEX));
+            if target_board & A3_INDEX != 0 {
+                next_move_list.push((hand_index, A3_INDEX));
             }
-            if target_board & A4_INDEX == 1 {
-                next_move_list.push((src_index, A4_INDEX));
+            if target_board & A4_INDEX != 0 {
+                next_move_list.push((hand_index, A4_INDEX));
             }
-            if target_board & B1_INDEX == 1 {
-                next_move_list.push((src_index, B1_INDEX));
+            if target_board & B1_INDEX != 0 {
+                next_move_list.push((hand_index, B1_INDEX));
             }
-            if target_board & B2_INDEX == 1 {
-                next_move_list.push((src_index, B2_INDEX));
+            if target_board & B2_INDEX != 0 {
+                next_move_list.push((hand_index, B2_INDEX));
             }
-            if target_board & B3_INDEX == 1 {
-                next_move_list.push((src_index, B3_INDEX));
+            if target_board & B3_INDEX != 0 {
+                next_move_list.push((hand_index, B3_INDEX));
             }
-            if target_board & B4_INDEX == 1 {
-                next_move_list.push((src_index, B4_INDEX));
+            if target_board & B4_INDEX != 0 {
+                next_move_list.push((hand_index, B4_INDEX));
             }
-            if target_board & C1_INDEX == 1 {
-                next_move_list.push((src_index, C1_INDEX));
+            if target_board & C1_INDEX != 0 {
+                next_move_list.push((hand_index, C1_INDEX));
             }
-            if target_board & C2_INDEX == 1 {
-                next_move_list.push((src_index, C2_INDEX));
+            if target_board & C2_INDEX != 0 {
+                next_move_list.push((hand_index, C2_INDEX));
             }
-            if target_board & C3_INDEX == 1 {
-                next_move_list.push((src_index, C3_INDEX));
+            if target_board & C3_INDEX != 0 {
+                next_move_list.push((hand_index, C3_INDEX));
             }
-            if target_board & C4_INDEX == 1 {
-                next_move_list.push((src_index, C4_INDEX));
+            if target_board & C4_INDEX != 0 {
+                next_move_list.push((hand_index, C4_INDEX));
             }
         }
     }
@@ -3462,9 +3539,9 @@ pub fn nega_scout(
     }
     let next_move_list = next_move_list(board, is_player1);
     for next_move in next_move_list {
-        if depth == DEPTH {
-            let a = 0;
-        }
+        // if depth == DEPTH {
+        //     let a = 0;
+        // }
         //print_nega(depth, 9999999, next_move);
         // if depth == DEPTH && next_move == (1024, 128) {
         //     if depth == DEPTH && next_move == (16, 256) {
@@ -3579,27 +3656,262 @@ mod tests {
     use super::*;
     #[test]
 
-    fn test_make_moved_board() {
+    fn test1_make_moved_board() {
         let mut board = Bitboard::bitboard::Bitboard {
-            white_b: 0b_000000_000000_000_000_000_001,
-            black_b: 0b_000000_000000_000_000_010_000,
-            kb: 0b_000000_000000_000_000_010_000,
-            rb: 0b_000000_000000_000_000_000_000,
-            bb: 0b_000000_000000_000_000_000_001,
-            pb: 0b_000000_000000_000_000_000_000,
+            white_b: 0b_000000_000000_111_010_000_000,
+            black_b: 0b_000000_000000_000_000_010_111,
+            kb: 0b_000000_000000_010_000_000_010,
+            rb: 0b_000000_000000_100_000_000_001,
+            bb: 0b_000000_000000_001_000_000_100,
+            pb: 0b_000000_000000_000_010_010_000,
             ppb: 0b_000000_000000_000_000_000_000,
         };
-        let move_vec = (A1_INDEX, B2_INDEX);
-        let is_player1 = true;
-        let mut moved_board = Bitboard::bitboard::Bitboard {
-            white_b: 0b_000000_000001_000_000_010_000,
-            black_b: 0b_000000_000000_000_000_000_000,
-            kb: 0b_000000_000001_000_000_000_000,
-            rb: 0b_000000_000000_000_000_000_000,
-            bb: 0b_000000_000000_000_000_010_000,
-            pb: 0b_000000_000000_000_000_000_000,
+        let mut move_vec = (B3_INDEX, B2_INDEX);
+        let mut is_player1 = true;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+
+        move_vec = (C1_INDEX, B2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (A4_INDEX, B3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (E1_INDEX, C3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (D1_INDEX, A2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (C3_INDEX, C4_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B3_INDEX, C4_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (A1_INDEX, A2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (C4_INDEX, B3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (A2_INDEX, A3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (D1_INDEX, A4_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (A3_INDEX, B3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B4_INDEX, B3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (E3_INDEX, C2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B3_INDEX, B4_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (E1_INDEX, B3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B4_INDEX, C4_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (E1_INDEX, C3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (C4_INDEX, B3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (C2_INDEX, B3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        let moved_board = Bitboard::bitboard::Bitboard {
+            white_b: 0b_000000_000011_001_000_000_000,
+            black_b: 0b_000001_000000_000_110_010_010,
+            kb: 0b_000001_000000_000_000_000_010,
+            rb: 0b_000000_000011_000_000_000_000,
+            bb: 0b_000000_000000_000_010_010_000,
+            pb: 0b_000000_000000_001_100_000_000,
             ppb: 0b_000000_000000_000_000_000_000,
         };
-        assert_eq!(moved_board, make_moved_board(&board, move_vec, is_player1));
+        assert_eq!(moved_board, board);
+    }
+
+    #[test]
+    fn test2_make_moved_board() {
+        let mut board = Bitboard::bitboard::Bitboard {
+            white_b: 0b_000000_000000_111_010_000_000,
+            black_b: 0b_000000_000000_000_000_010_111,
+            kb: 0b_000000_000000_010_000_000_010,
+            rb: 0b_000000_000000_100_000_000_001,
+            bb: 0b_000000_000000_001_000_000_100,
+            pb: 0b_000000_000000_000_010_010_000,
+            ppb: 0b_000000_000000_000_000_000_000,
+        };
+        let mut move_vec = (B3_INDEX, A1_INDEX);
+        let mut is_player1 = true;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B2_INDEX, A2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (A1_INDEX, A2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (C1_INDEX, B2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (A2_INDEX, A3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B2_INDEX, A3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B4_INDEX, A3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (E1_INDEX, A2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (A3_INDEX, A2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B1_INDEX, C1_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (D1_INDEX, B3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (C1_INDEX, B1_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (D1_INDEX, A3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+
+        let moved_board = Bitboard::bitboard::Bitboard {
+            white_b: 0b_000000_000011_101_011_001_000,
+            black_b: 0b_000000_000000_000_000_000_010,
+            kb: 0b_000000_000000_000_000_001_010,
+            rb: 0b_000000_000000_100_010_000_000,
+            bb: 0b_000000_000001_001_000_000_000,
+            pb: 0b_000000_000010_000_001_000_000,
+            ppb: 0b_000000_000000_000_000_000_000,
+        };
+        assert_eq!(moved_board, board);
+    }
+
+    #[test]
+    fn test3_make_moved_board() {
+        let mut board = Bitboard::bitboard::Bitboard {
+            white_b: 0b_000000_000000_111_010_000_000,
+            black_b: 0b_000000_000000_000_000_010_111,
+            kb: 0b_000000_000000_010_000_000_010,
+            rb: 0b_000000_000000_100_000_000_001,
+            bb: 0b_000000_000000_001_000_000_100,
+            pb: 0b_000000_000000_000_010_010_000,
+            ppb: 0b_000000_000000_000_000_000_000,
+        };
+        let mut move_vec = (C4_INDEX, C3_INDEX);
+        let mut is_player1 = true;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B2_INDEX, A4_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (C3_INDEX, C2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (A4_INDEX, C2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B3_INDEX, B2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (C2_INDEX, B3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B4_INDEX, C4_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B3_INDEX, B2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (C4_INDEX, B2_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (E2_INDEX, B4_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (D1_INDEX, B3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B1_INDEX, B3_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (B2_INDEX, B1_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        move_vec = (E2_INDEX, C4_INDEX);
+        is_player1 = !is_player1;
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+
+        let moved_board = Bitboard::bitboard::Bitboard {
+            white_b: 0b_000000_000000_000_000_000_010,
+            black_b: 0b_000011_000000_110_010_000_101,
+            kb: 0b_000000_000000_000_010_000_010,
+            rb: 0b_000000_000000_010_000_000_001,
+            bb: 0b_000001_000000_000_000_000_100,
+            pb: 0b_000010_000000_100_000_000_000,
+            ppb: 0b_000000_000000_000_000_000_000,
+        };
+        assert_eq!(moved_board, board);
     }
 }
