@@ -4,7 +4,7 @@ use std::{
     net::{TcpStream, ToSocketAddrs},
 };
 
-mod Bitboard;
+mod bit_board;
 
 const A1_INDEX_DEC: i32 = 0;
 const B1_INDEX_DEC: i32 = 1;
@@ -106,7 +106,7 @@ fn main() {
 
     // let start = Instant::now();
     // for i in 0..100000 {
-    //     let mut board = Bitboard::bitboard::Bitboard {
+    //     let mut board = bit_board::bit_board::BitBoard {
     //         black_b: 1 << 10 + 1,
     //         white_b: 1 << 3 + 1 << 3,
     //         kb: 1,
@@ -136,7 +136,7 @@ fn main() {
 
     // let start = Instant::now();
     // //for i in 0..100000 {
-    // let mut board = Bitboard::bitboard::Bitboard {
+    // let mut board = bit_board::bit_board::BitBoard {
     //     black_b: (1 << 3) + (1 << 5),
     //     white_b: (1 << 10) + 1,
     //     kb: 1,
@@ -266,7 +266,7 @@ fn main() {
                     println!("You are Player 2.");
                     is_player1 = !is_player1;
                 }
-                let mut bef_board = Bitboard::bitboard::Bitboard {
+                let mut bef_board = bit_board::bit_board::BitBoard {
                     white_b: 0b000_000_000_010,
                     black_b: 0b010_000_000_000,
                     kb: 0b010_000_000_010,
@@ -293,7 +293,7 @@ fn main() {
                             .read_until(b'\n', &mut board_vec)
                             .expect("Receive failure.");
 
-                        let board = make_bitboard(&mut board_vec);
+                        let board = make_bit_board(&mut board_vec);
                         let clone_board = board.clone();
                         let depth = DEPTH;
                         // println!("{}", board);
@@ -352,7 +352,7 @@ pub fn write_socket(writer: &mut BufWriter<&TcpStream>, msg: &str) {
     let _ = writer.flush();
 }
 
-pub fn make_bitboard(board_vec: &mut Vec<u8>) -> Bitboard::bitboard::Bitboard {
+pub fn make_bit_board(board_vec: &mut Vec<u8>) -> bit_board::bit_board::BitBoard {
     let mut white_b: i32 = 0;
     let mut black_b: i32 = 0;
     let mut kb: i32 = 0;
@@ -393,7 +393,7 @@ pub fn make_bitboard(board_vec: &mut Vec<u8>) -> Bitboard::bitboard::Bitboard {
     // println!("pb:{:<012b}", pb);
     // println!("ppb:{:<012b}", ppb);
 
-    Bitboard::bitboard::Bitboard {
+    bit_board::bit_board::BitBoard {
         white_b,
         black_b,
         kb,
@@ -404,7 +404,7 @@ pub fn make_bitboard(board_vec: &mut Vec<u8>) -> Bitboard::bitboard::Bitboard {
     }
 }
 
-//pub fn make_board_map(board: &Bitboard::bitboard::Bitboard) -> &mut Vec<u8> {}
+//pub fn make_board_map(board: &bit_board::bit_board::BitBoard) -> &mut Vec<u8> {}
 
 pub fn piece_to_pos(s: (u8, u8)) -> i32 {
     match s {
@@ -467,10 +467,10 @@ pub fn pos_to_piece(s: i32) -> (u8, u8) {
 }
 
 pub fn make_moved_board(
-    bef_board: &Bitboard::bitboard::Bitboard,
+    bef_board: &bit_board::bit_board::BitBoard,
     move_vec: (i32, i32),
     is_player1: bool,
-) -> Bitboard::bitboard::Bitboard {
+) -> bit_board::bit_board::BitBoard {
     let src = move_vec.0;
     let dst = move_vec.1;
     let mut board = bef_board.clone();
@@ -627,7 +627,7 @@ pub fn make_moved_board(
     board
 }
 
-pub fn next_move_list(board: &Bitboard::bitboard::Bitboard, is_player1: bool) -> Vec<(i32, i32)> {
+pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) -> Vec<(i32, i32)> {
     let mut next_move_list: Vec<(i32, i32)> = vec![];
 
     if is_player1 {
@@ -3320,8 +3320,8 @@ pub fn next_move_list(board: &Bitboard::bitboard::Bitboard, is_player1: bool) ->
 // }
 
 pub fn judge(
-    board: &Bitboard::bitboard::Bitboard,
-    bef_board: &Bitboard::bitboard::Bitboard,
+    board: &bit_board::bit_board::BitBoard,
+    bef_board: &bit_board::bit_board::BitBoard,
     is_player1: bool,
 ) -> i32 {
     // キャッチ判定
@@ -3349,8 +3349,8 @@ pub fn judge(
 }
 
 pub fn eval_function(
-    board: &Bitboard::bitboard::Bitboard,
-    bef_board: &Bitboard::bitboard::Bitboard,
+    board: &bit_board::bit_board::BitBoard,
+    bef_board: &bit_board::bit_board::BitBoard,
     is_player1: bool,
 ) -> i32 {
     // 勝敗がついていれば終了
@@ -3511,8 +3511,8 @@ pub fn eval_function(
 }
 
 pub fn nega_scout(
-    board: &Bitboard::bitboard::Bitboard,
-    bef_board: &Bitboard::bitboard::Bitboard,
+    board: &bit_board::bit_board::BitBoard,
+    bef_board: &bit_board::bit_board::BitBoard,
     is_player1: bool,
     depth: i32,
     mut alpha: i32,
@@ -3657,7 +3657,7 @@ mod tests {
     #[test]
 
     fn test1_make_moved_board() {
-        let mut board = Bitboard::bitboard::Bitboard {
+        let mut board = bit_board::bit_board::BitBoard {
             white_b: 0b_000000_000000_111_010_000_000,
             black_b: 0b_000000_000000_000_000_010_111,
             kb: 0b_000000_000000_010_000_000_010,
@@ -3747,7 +3747,7 @@ mod tests {
         is_player1 = !is_player1;
         board = make_moved_board(&board, move_vec, is_player1);
         println!("{}", board);
-        let moved_board = Bitboard::bitboard::Bitboard {
+        let moved_board = bit_board::bit_board::BitBoard {
             white_b: 0b_000000_000011_001_000_000_000,
             black_b: 0b_000001_000000_000_110_010_010,
             kb: 0b_000001_000000_000_000_000_010,
@@ -3761,7 +3761,7 @@ mod tests {
 
     #[test]
     fn test2_make_moved_board() {
-        let mut board = Bitboard::bitboard::Bitboard {
+        let mut board = bit_board::bit_board::BitBoard {
             white_b: 0b_000000_000000_111_010_000_000,
             black_b: 0b_000000_000000_000_000_010_111,
             kb: 0b_000000_000000_010_000_000_010,
@@ -3823,7 +3823,7 @@ mod tests {
         board = make_moved_board(&board, move_vec, is_player1);
         println!("{}", board);
 
-        let moved_board = Bitboard::bitboard::Bitboard {
+        let moved_board = bit_board::bit_board::BitBoard {
             white_b: 0b_000000_000011_101_011_001_000,
             black_b: 0b_000000_000000_000_000_000_010,
             kb: 0b_000000_000000_000_000_001_010,
@@ -3837,7 +3837,7 @@ mod tests {
 
     #[test]
     fn test3_make_moved_board() {
-        let mut board = Bitboard::bitboard::Bitboard {
+        let mut board = bit_board::bit_board::BitBoard {
             white_b: 0b_000000_000000_111_010_000_000,
             black_b: 0b_000000_000000_000_000_010_111,
             kb: 0b_000000_000000_010_000_000_010,
@@ -3903,7 +3903,7 @@ mod tests {
         board = make_moved_board(&board, move_vec, is_player1);
         println!("{}", board);
 
-        let moved_board = Bitboard::bitboard::Bitboard {
+        let moved_board = bit_board::bit_board::BitBoard {
             white_b: 0b_000000_000000_000_000_000_010,
             black_b: 0b_000011_000000_110_010_000_101,
             kb: 0b_000000_000000_000_010_000_010,

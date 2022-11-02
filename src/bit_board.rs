@@ -1,4 +1,4 @@
-pub mod bitboard {
+pub mod bit_board {
     use std::fmt;
 
     // '''
@@ -7,7 +7,7 @@ pub mod bitboard {
     // board: A1 B1 C1 A2 B2 C2 A3 B3 C3 A4 B4 C4 D1 D2 D3 D4 D5 D6 E1 E2 E3 E4 E5 E6
     // '''
     #[derive(Clone, Debug, PartialEq)]
-    pub struct Bitboard {
+    pub struct BitBoard {
         pub white_b: i32, // 先手
         pub black_b: i32, // 後手
         pub kb: i32,      // ライオン
@@ -17,12 +17,12 @@ pub mod bitboard {
         pub ppb: i32,     // ニワトリ
     }
 
-    impl Bitboard {
+    impl BitBoard {
         //pub fn () -> Self {
 
         //}
     }
-    impl std::fmt::Display for Bitboard {
+    impl std::fmt::Display for BitBoard {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             let white_b_str = reverse_string(&format!("{:<024b}", &self.white_b).to_string());
             let black_b_str = reverse_string(&format!("{:<024b}", &self.black_b).to_string());
