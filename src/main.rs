@@ -95,149 +95,19 @@ const LOSE_POINT: i32 = -10000;
 // ];
 
 // const PIECE_NUM: usize = 12;
-const DEPTH: i32 = 10;
+const DEPTH: i32 = 9;
+//const HOST_NAME: &str = "localhost";
+const HOST_NAME: &str = "192.168.11.4";
+const PORT_NUM: i32 = 4444;
 
 fn main() {
     // test
     // let start = Instant::now();
-
     // let end = start.elapsed();
     // println!("{} :経過しました。", end.subsec_nanos());
 
-    // let start = Instant::now();
-    // for i in 0..100000 {
-    //     let mut board = bit_board::bit_board::BitBoard {
-    //         black_b: 1 << 10 + 1,
-    //         white_b: 1 << 3 + 1 << 3,
-    //         kb: 1,
-    //         rb: 1 << 3,
-    //         bb: 1 << 5,
-    //         pb: 1 << 10,
-    //         ppb: 0,
-    //     };
-    //     let src = 1 << 3;
-    //     let dst = 1 << 9;
-    //     board.kb = board.kb & !src;
-    //     board.rb = board.rb & !src;
-    //     board.bb = board.bb & !src;
-    //     board.pb = board.pb & !src;
-    //     board.ppb = board.ppb & !src;
-
-    //     board.white_b = board.white_b | dst;
-    //     board.white_b = board.white_b | dst;
-    //     board.white_b = board.white_b | dst;
-    //     board.white_b = board.white_b | dst;
-    //     board.white_b = board.white_b | dst;
-    //     board.white_b = board.white_b | dst;
-    // }
-
-    // let end = start.elapsed();
-    // println!("{}", end.subsec_nanos());
-
-    // let start = Instant::now();
-    // //for i in 0..100000 {
-    // let mut board = bit_board::bit_board::BitBoard {
-    //     black_b: (1 << 3) + (1 << 5),
-    //     white_b: (1 << 10) + 1,
-    //     kb: 1,
-    //     rb: 1 << 3,
-    //     bb: 1 << 5,
-    //     pb: 1 << 10,
-    //     ppb: 0,
-    // };
-    // println!("{:b}", board.white_b);
-    // println!("{:b}", board.black_b);
-    // println!("{:b}", board.white_b & -board.white_b);
-    // println!("{:b}", -1);
-    // println!("{:b}", board.white_b - (board.white_b & -board.white_b));
-    // println!("{:b}", 0b111 << 6);
-    // println!("{}", if board.white_b != 0 { 10 } else { 11 });
-    // println!("{:b}", !-board.bb);
-    // println!("{}", EVAL_LIST[0][board.kb as usize]);
-
-    // let src = 1 << 3;
-    // let dst = 1 << 9;
-    // if board.kb & !src != 0 {
-    //     board.kb = board.kb & !src;
-    //     board.white_b = board.white_b | dst;
-    // } else if board.rb & !src != 0 {
-    //     board.rb = board.rb & !src;
-    //     board.white_b = board.white_b | dst;
-    // } else if board.bb & !src != 0 {
-    //     board.bb = board.bb & !src;
-    //     board.white_b = board.white_b | dst;
-    // } else if board.pb & !src != 0 {
-    //     board.pb = board.pb & !src;
-    //     board.white_b = board.white_b | dst;
-    // } else if board.ppb & !src != 0 {
-    //     board.ppb = board.ppb & !src;
-    //     board.white_b = board.white_b | dst;
-    // }
-    //}
-
-    // let end = start.elapsed();
-    // println!("{}", end.subsec_nanos());
-
-    // let start = Instant::now();
-    // for i in 0..100000 {
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    // }
-
-    // let end = start.elapsed();
-    // println!("{}", end.subsec_nanos());
-
-    // let mut a = 1 << 12;
-    // let b = 1 << 10;
-    // let start = Instant::now();
-    // for i in 0..100000 {
-    //     if a == 0 {
-    //         a = a & !b;
-    //     } else if a == 2 {
-    //         a = a & !b;
-    //     } else if a == 3 {
-    //         a = a & !b;
-    //     } else if a == 4 {
-    //         a = a & !b;
-    //     } else {
-    //         a = a & !b;
-    //     }
-    // }
-
-    // let end = start.elapsed();
-    // println!("{}", end.subsec_nanos());
-
-    // let start = Instant::now();
-    // for i in 0..100000 {
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    //     a = a & !b;
-    // }
-
-    // let end = start.elapsed();
-    // println!("{}", end.subsec_nanos());
-
-    // ソケット通信
-    let host = "localhost";
-    let port = 4444;
-
     // サーバ接続
-    let host_and_port = format!("{}:{}", host, port);
+    let host_and_port = format!("{}:{}", HOST_NAME, PORT_NUM);
     let mut addrs = host_and_port.to_socket_addrs().unwrap();
 
     // 直接Ipv4を指定
@@ -324,8 +194,8 @@ fn main() {
                             break;
                         }
                         //println!("{}", next_board);
-                        //println!("{}, {}", move_str, best_node.point);
-                        // println!("---");
+                        println!("{}, point:{}", move_str, best_node.point);
+                        println!("-------------------");
 
                         //相手のターンが終わるまで待つ
                         loop {
