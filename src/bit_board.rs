@@ -17,11 +17,6 @@ pub mod bit_board {
         pub ppb: i32,     // ニワトリ
     }
 
-    impl BitBoard {
-        //pub fn () -> Self {
-
-        //}
-    }
     impl std::fmt::Display for BitBoard {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             let white_b_str = reverse_string(&format!("{:<024b}", &self.white_b).to_string());

@@ -6,6 +6,7 @@ use std::{
 
 mod bit_board;
 
+// 盤面定数
 const A1_INDEX_DEC: i32 = 0;
 const B1_INDEX_DEC: i32 = 1;
 const C1_INDEX_DEC: i32 = 2;
@@ -94,10 +95,11 @@ const LOSE_POINT: i32 = -10000;
 //     ],
 // ];
 
-// const PIECE_NUM: usize = 12;
+// パラメータ
 const DEPTH: i32 = 9;
-//const HOST_NAME: &str = "localhost";
-const HOST_NAME: &str = "192.168.11.4";
+const SEARCH_THRESHOLD: usize = 10;
+const HOST_NAME: &str = "localhost";
+//const HOST_NAME: &str = "192.168.11.4";
 const PORT_NUM: i32 = 4444;
 
 fn main() {
@@ -113,8 +115,8 @@ fn main() {
     // 直接Ipv4を指定
     if let Some(addr) = addrs.find(|x| (*x).is_ipv4()) {
         match TcpStream::connect(addr) {
-            Err(_) => {
-                println!("Connection NG.");
+            Err(e) => {
+                println!("{}", e);
             }
             Ok(stream) => {
                 println!("Connection Ok.");
@@ -3380,7 +3382,147 @@ pub fn eval_function(
     point
 }
 
+pub fn shallow_search(board: &bit_board::bit_board::BitBoard, dst: i32, is_player1: bool) -> i32 {
+    // プレイヤー1の場合
+    if is_player1 {
+        if board.black_b & dst != 0 {
+            if board.kb & dst != 0 {
+                return WIN_POINT;
+            } else if board.rb & dst != 0 {
+                return RB_BOARD_POINT;
+            } else if board.bb & dst != 0 {
+                return BB_BOARD_POINT;
+            } else if board.pb & dst != 0 {
+                return PB_BOARD_POINT;
+            } else if board.ppb & dst != 0 {
+                return PPB_BOARD_POINT;
+            }
+        }
+    } else {
+        if board.white_b & dst != 0 {
+            if board.kb & dst != 0 {
+                return WIN_POINT;
+            } else if board.rb & dst != 0 {
+                return RB_BOARD_POINT;
+            } else if board.bb & dst != 0 {
+                return BB_BOARD_POINT;
+            } else if board.pb & dst != 0 {
+                return PB_BOARD_POINT;
+            } else if board.ppb & dst != 0 {
+                return PPB_BOARD_POINT;
+            }
+        }
+    }
+    0
+}
+
 pub fn nega_scout(
+    board: &bit_board::bit_board::BitBoard,
+    bef_board: &bit_board::bit_board::BitBoard,
+    is_player1: bool,
+    depth: i32,
+    mut alpha: i32,
+    beta: i32,
+) -> Node {
+    let mut best_move = (0, 0);
+    // 根のノードの場合、静的評価
+    if depth == 0 {
+        let point: i32 = eval_function(board, bef_board, is_player1);
+        //print_nega(depth, point, best_move);
+        return Node { best_move, point };
+    }
+    // 勝敗がついていれば終了
+    let mut point = judge(board, bef_board, is_player1);
+    if point != 0 {
+        if point == WIN_POINT {
+            point += depth;
+        } else {
+            point -= depth;
+        }
+
+        //print_nega(depth, point, best_move);
+        return Node { best_move, point };
+    }
+
+    let mut next_move_list = next_move_list(board, is_player1);
+    // 次の手の候補の個数がしきい値以下の場合、negaalphaで探索
+    if next_move_list.len() < SEARCH_THRESHOLD {
+        for next_move in next_move_list {
+            let next_board = make_moved_board(board, next_move, is_player1);
+            let next_node = nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
+            point = -next_node.point;
+
+            if point > alpha {
+                alpha = point;
+                best_move = next_move;
+            }
+            if alpha >= beta {
+                break;
+            }
+        }
+    } else {
+        // 次の手の候補の個数がしきい値以上の場合、浅い探索で評価の高い手を先頭へ移動
+        // 最もよさそうな手を選択
+        let mut max_point = LOSE_POINT;
+        let mut max_idx = 0;
+        let mut idx = 0;
+        for next_move in next_move_list.iter() {
+            let point: i32 = shallow_search(board, next_move.1, is_player1);
+            if max_point < point {
+                max_point = point;
+                max_idx = idx;
+            }
+            idx += 1;
+        }
+        best_move = next_move_list[max_idx];
+        next_move_list.remove(max_idx);
+
+        // 最初のみ普通に探索
+        let next_board = make_moved_board(board, best_move, is_player1);
+        let next_node = nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
+        point = -next_node.point;
+
+        if point > alpha {
+            alpha = point;
+        }
+
+        // ２つ目以降の手はnullwindowsearchで確認のみ行う
+        for next_move in next_move_list {
+            let next_board = make_moved_board(board, next_move, is_player1);
+            let next_node = nega_scout(
+                &next_board,
+                &board,
+                !is_player1,
+                depth - 1,
+                -alpha - 1,
+                -alpha,
+            );
+            point = -next_node.point;
+
+            // failed highの場合再探索
+            if alpha < point && point < beta {
+                let next_node =
+                    nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
+                point = -next_node.point;
+            }
+
+            if point > alpha {
+                alpha = point;
+                best_move = next_move;
+            }
+            if alpha >= beta {
+                break;
+            }
+        }
+    }
+
+    Node {
+        best_move,
+        point: alpha,
+    }
+}
+
+pub fn nega_alpha(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
     is_player1: bool,
