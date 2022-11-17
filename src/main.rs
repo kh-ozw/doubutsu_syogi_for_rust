@@ -77,7 +77,7 @@ const WIN_POINT: i32 = 10000;
 const LOSE_POINT: i32 = -10000;
 
 // パラメータ
-const DEPTH: i32 = 9;
+const DEPTH: i32 = 11;
 const SEARCH_THRESHOLD: usize = 10;
 const HOST_NAME: &str = "localhost";
 //const HOST_NAME: &str = "192.168.11.4";
