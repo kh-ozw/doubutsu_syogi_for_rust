@@ -85,7 +85,7 @@ const PORT_NUM: i32 = 4444;
 
 fn main() {
     // test1
-    // test
+    // test2
     // let start = Instant::now();
     // let end = start.elapsed();
     // println!("{} :経過しました。", end.subsec_nanos());
