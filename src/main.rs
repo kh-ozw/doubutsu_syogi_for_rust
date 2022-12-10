@@ -2,6 +2,7 @@
 use std::{
     io::{BufRead, BufReader, BufWriter, Write},
     net::{TcpStream, ToSocketAddrs},
+    time::Instant,
 };
 
 mod bit_board;
@@ -149,8 +150,20 @@ fn main() {
                         let clone_board = board.clone();
                         let depth = DEPTH;
                         // println!("{}", board);
-                        let best_node: Node =
-                            nega_scout(&board, &bef_board, is_player1, depth, -50000, 50000);
+                        let first_node_count: usize = next_move_list(&board, is_player1).len();
+
+                        let start = Instant::now();
+                        let mut node_count: usize = 0;
+                        let best_node: Node = nega_scout(
+                            &board,
+                            &bef_board,
+                            is_player1,
+                            depth,
+                            -50000,
+                            50000,
+                            &mut node_count,
+                        );
+                        let end = start.elapsed();
 
                         let move_str = String::from("mv ")
                             + &get_board_name(best_node.best_move.0)
@@ -176,8 +189,16 @@ fn main() {
                             break;
                         }
                         //println!("{}", next_board);
-                        println!("{}, point:{}", move_str, best_node.point);
-                        println!("-------------------");
+                        println!(
+                            "{}, point:{:>05}, count:{:>010}, time:{:>011}, first count:{:>02}, n/f{:>09}",
+                            move_str,
+                            best_node.point,
+                            node_count,
+                            end.as_nanos(),
+                            first_node_count,
+                            node_count / first_node_count,
+                        );
+                        //println!("-------------------");
 
                         //相手のターンが終わるまで待つ
                         loop {
@@ -483,6 +504,7 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
     let mut next_move_list: Vec<(i32, i32)> = vec![];
 
     if is_player1 {
+        // 1pの手の探索
         let player_board = board.white_b;
 
         // 1pひよこの手探索
@@ -606,12 +628,12 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             // 1つ目のコマの探索
             match target_board {
                 A1_INDEX => {
-                    if player_board & A1_INDEX == 0 {
+                    if player_board & B2_INDEX == 0 {
                         next_move_list.push((A1_INDEX, B2_INDEX))
                     }
                 }
                 A2_INDEX => {
-                    if player_board & A2_INDEX == 0 {
+                    if player_board & B3_INDEX == 0 {
                         next_move_list.push((A2_INDEX, B3_INDEX))
                     }
                     if player_board & B1_INDEX == 0 {
@@ -708,12 +730,12 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                 // 2つ目のコマの探索
                 match target_board {
                     A1_INDEX => {
-                        if player_board & A1_INDEX == 0 {
+                        if player_board & B2_INDEX == 0 {
                             next_move_list.push((A1_INDEX, B2_INDEX))
                         }
                     }
                     A2_INDEX => {
-                        if player_board & A2_INDEX == 0 {
+                        if player_board & B3_INDEX == 0 {
                             next_move_list.push((A2_INDEX, B3_INDEX))
                         }
                         if player_board & B1_INDEX == 0 {
@@ -996,9 +1018,6 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                         }
                     }
                     B2_INDEX => {
-                        if player_board & B1_INDEX == 0 {
-                            next_move_list.push((B2_INDEX, B1_INDEX));
-                        }
                         if player_board & B3_INDEX == 0 {
                             next_move_list.push((B2_INDEX, B3_INDEX));
                         }
@@ -1013,9 +1032,6 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                         }
                     }
                     B3_INDEX => {
-                        if player_board & B1_INDEX == 0 {
-                            next_move_list.push((B3_INDEX, B1_INDEX));
-                        }
                         if player_board & B4_INDEX == 0 {
                             next_move_list.push((B3_INDEX, B4_INDEX));
                         }
@@ -1636,12 +1652,7 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
 
         // 1pヒヨコ
         if board.pb & D_HAND_MASK != 0 {
-            // println!("{:b}", board.pb & D_HAND_MASK);
-            // println!("{:b}", -(board.pb & D_HAND_MASK));
-            // println!("{}", (board.pb & D_HAND_MASK) & -(board.pb & D_HAND_MASK));
             let hand_index = (board.pb & D_HAND_MASK) & -(board.pb & D_HAND_MASK);
-            // println!("{}", board);
-            // println!("{}", target_board & A1_INDEX);
             if target_board & A1_INDEX != 0 {
                 next_move_list.push((hand_index, A1_INDEX));
             }
@@ -1760,7 +1771,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             }
         }
     } else {
+        // 2pの手の探索
         let player_board = board.black_b;
+
         // 2pひよこの手探索
         let pb_board = player_board & board.pb;
         let target_board = pb_board & -pb_board;
@@ -1768,12 +1781,12 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             // 1つ目のコマの探索
             match target_board {
                 A1_INDEX => {
+                    // 移動先に自分のコマがなければ、移動先に追加
                     if player_board & A2_INDEX == 0 {
                         next_move_list.push((A1_INDEX, A2_INDEX))
                     }
                 }
                 A2_INDEX => {
-                    // 移動先に自分のコマがなければ、移動先に追加
                     if player_board & A3_INDEX == 0 {
                         next_move_list.push((A2_INDEX, A3_INDEX))
                     }
@@ -1786,7 +1799,7 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                 //A4_INDEX => _
                 B1_INDEX => {
                     if player_board & B2_INDEX == 0 {
-                        next_move_list.push((B4_INDEX, B2_INDEX))
+                        next_move_list.push((B1_INDEX, B2_INDEX))
                     }
                 }
                 B2_INDEX => {
@@ -1822,53 +1835,51 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             if target_board != 0 {
                 // 2つ目のコマの探索
                 match target_board {
-                    // A1_INDEX => _,
+                    A1_INDEX => {
+                        if player_board & A2_INDEX == 0 {
+                            next_move_list.push((A1_INDEX, A2_INDEX))
+                        }
+                    }
                     A2_INDEX => {
-                        // 移動先に自分のコマがなければ、移動先に追加
-                        if player_board & A1_INDEX == 0 {
-                            next_move_list.push((A2_INDEX, A1_INDEX))
+                        if player_board & A3_INDEX == 0 {
+                            next_move_list.push((A2_INDEX, A3_INDEX))
                         }
                     }
                     A3_INDEX => {
-                        if player_board & A2_INDEX == 0 {
-                            next_move_list.push((A3_INDEX, A2_INDEX))
+                        if player_board & A4_INDEX == 0 {
+                            next_move_list.push((A3_INDEX, A4_INDEX))
                         }
                     }
-                    A4_INDEX => {
-                        if player_board & A3_INDEX == 0 {
-                            next_move_list.push((A4_INDEX, A3_INDEX))
+                    //A4_INDEX => _
+                    B1_INDEX => {
+                        if player_board & B2_INDEX == 0 {
+                            next_move_list.push((B1_INDEX, B2_INDEX))
                         }
                     }
-                    //B1_INDEX => _,
                     B2_INDEX => {
-                        if player_board & B1_INDEX == 0 {
-                            next_move_list.push((B2_INDEX, B1_INDEX))
+                        if player_board & B3_INDEX == 0 {
+                            next_move_list.push((B2_INDEX, B3_INDEX))
                         }
                     }
                     B3_INDEX => {
-                        if player_board & B2_INDEX == 0 {
-                            next_move_list.push((B3_INDEX, B2_INDEX))
+                        if player_board & B4_INDEX == 0 {
+                            next_move_list.push((B3_INDEX, B4_INDEX))
                         }
                     }
-                    B4_INDEX => {
-                        if player_board & B3_INDEX == 0 {
-                            next_move_list.push((B4_INDEX, B3_INDEX))
+                    //B4_INDEX => _,
+                    C1_INDEX => {
+                        if player_board & C2_INDEX == 0 {
+                            next_move_list.push((C1_INDEX, C2_INDEX))
                         }
                     }
-                    //C1_INDEX => _,
                     C2_INDEX => {
-                        if player_board & C1_INDEX == 0 {
-                            next_move_list.push((C2_INDEX, C1_INDEX))
+                        if player_board & C3_INDEX == 0 {
+                            next_move_list.push((C2_INDEX, C3_INDEX))
                         }
                     }
                     C3_INDEX => {
-                        if player_board & C2_INDEX == 0 {
-                            next_move_list.push((C3_INDEX, C2_INDEX))
-                        }
-                    }
-                    C4_INDEX => {
-                        if player_board & C3_INDEX == 0 {
-                            next_move_list.push((C4_INDEX, C3_INDEX))
+                        if player_board & C4_INDEX == 0 {
+                            next_move_list.push((C3_INDEX, C4_INDEX))
                         }
                     }
                     //C4_INDEX => _,
@@ -1884,12 +1895,12 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             // 1つ目のコマの探索
             match target_board {
                 A1_INDEX => {
-                    if player_board & A1_INDEX == 0 {
+                    if player_board & B2_INDEX == 0 {
                         next_move_list.push((A1_INDEX, B2_INDEX))
                     }
                 }
                 A2_INDEX => {
-                    if player_board & A2_INDEX == 0 {
+                    if player_board & B3_INDEX == 0 {
                         next_move_list.push((A2_INDEX, B3_INDEX))
                     }
                     if player_board & B1_INDEX == 0 {
@@ -1986,12 +1997,12 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                 // 2つ目のコマの探索
                 match target_board {
                     A1_INDEX => {
-                        if player_board & A1_INDEX == 0 {
+                        if player_board & B2_INDEX == 0 {
                             next_move_list.push((A1_INDEX, B2_INDEX))
                         }
                     }
                     A2_INDEX => {
-                        if player_board & A2_INDEX == 0 {
+                        if player_board & B3_INDEX == 0 {
                             next_move_list.push((A2_INDEX, B3_INDEX))
                         }
                         if player_board & B1_INDEX == 0 {
@@ -2274,9 +2285,6 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                         }
                     }
                     B2_INDEX => {
-                        if player_board & B1_INDEX == 0 {
-                            next_move_list.push((B2_INDEX, B1_INDEX));
-                        }
                         if player_board & B3_INDEX == 0 {
                             next_move_list.push((B2_INDEX, B3_INDEX));
                         }
@@ -2291,9 +2299,6 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                         }
                     }
                     B3_INDEX => {
-                        if player_board & B1_INDEX == 0 {
-                            next_move_list.push((B3_INDEX, B1_INDEX));
-                        }
                         if player_board & B4_INDEX == 0 {
                             next_move_list.push((B3_INDEX, B4_INDEX));
                         }
@@ -3036,141 +3041,6 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
     next_move_list
 }
 
-//pub fn move_list(src: usize, piece: u8) -> Vec<usize> {
-//     let t = (src, piece);
-//     match t {
-//         (A1_INDEX, L1_CODE) => vec![B1_INDEX, B2_INDEX, A2_INDEX],
-//         (A2_INDEX, L1_CODE) => vec![A1_INDEX, B1_INDEX, B2_INDEX, B3_INDEX, A3_INDEX],
-//         (A3_INDEX, L1_CODE) => vec![A2_INDEX, B2_INDEX, B3_INDEX, B4_INDEX, A4_INDEX],
-//         (A4_INDEX, L1_CODE) => vec![A3_INDEX, B3_INDEX, B4_INDEX],
-//         (B1_INDEX, L1_CODE) => vec![C1_INDEX, A1_INDEX, C2_INDEX, A2_INDEX, B2_INDEX],
-//         (B2_INDEX, L1_CODE) => vec![
-//             B1_INDEX, C1_INDEX, A1_INDEX, C2_INDEX, A2_INDEX, C3_INDEX, A3_INDEX, B3_INDEX,
-//         ],
-//         (B3_INDEX, L1_CODE) => vec![
-//             B2_INDEX, C2_INDEX, A2_INDEX, C3_INDEX, A3_INDEX, C4_INDEX, A4_INDEX, B4_INDEX,
-//         ],
-//         (B4_INDEX, L1_CODE) => vec![B3_INDEX, C3_INDEX, A3_INDEX, C4_INDEX, A4_INDEX],
-//         (C1_INDEX, L1_CODE) => vec![B1_INDEX, B2_INDEX, C2_INDEX],
-//         (C2_INDEX, L1_CODE) => vec![C1_INDEX, B1_INDEX, B2_INDEX, B3_INDEX, C3_INDEX],
-//         (C3_INDEX, L1_CODE) => vec![C2_INDEX, B2_INDEX, B3_INDEX, B4_INDEX, C4_INDEX],
-//         (C4_INDEX, L1_CODE) => vec![C3_INDEX, B3_INDEX, B4_INDEX],
-//         (A1_INDEX, L2_CODE) => vec![B1_INDEX, B2_INDEX, A2_INDEX],
-//         (A2_INDEX, L2_CODE) => vec![A1_INDEX, B1_INDEX, B2_INDEX, B3_INDEX, A3_INDEX],
-//         (A3_INDEX, L2_CODE) => vec![A2_INDEX, B2_INDEX, B3_INDEX, B4_INDEX, A4_INDEX],
-//         (A4_INDEX, L2_CODE) => vec![A3_INDEX, B3_INDEX, B4_INDEX],
-//         (B1_INDEX, L2_CODE) => vec![C1_INDEX, A1_INDEX, C2_INDEX, A2_INDEX, B2_INDEX],
-//         (B2_INDEX, L2_CODE) => vec![
-//             B1_INDEX, C1_INDEX, A1_INDEX, C2_INDEX, A2_INDEX, C3_INDEX, A3_INDEX, B3_INDEX,
-//         ],
-//         (B3_INDEX, L2_CODE) => vec![
-//             B2_INDEX, C2_INDEX, A2_INDEX, C3_INDEX, A3_INDEX, C4_INDEX, A4_INDEX, B4_INDEX,
-//         ],
-//         (B4_INDEX, L2_CODE) => vec![B3_INDEX, C3_INDEX, A3_INDEX, C4_INDEX, A4_INDEX],
-//         (C1_INDEX, L2_CODE) => vec![B1_INDEX, B2_INDEX, C2_INDEX],
-//         (C2_INDEX, L2_CODE) => vec![C1_INDEX, B1_INDEX, B2_INDEX, B3_INDEX, C3_INDEX],
-//         (C3_INDEX, L2_CODE) => vec![C2_INDEX, B2_INDEX, B3_INDEX, B4_INDEX, C4_INDEX],
-//         (C4_INDEX, L2_CODE) => vec![C3_INDEX, B3_INDEX, B4_INDEX],
-//         (A1_INDEX, C1_CODE) => vec![],
-//         (A2_INDEX, C1_CODE) => vec![A1_INDEX],
-//         (A3_INDEX, C1_CODE) => vec![A2_INDEX],
-//         (A4_INDEX, C1_CODE) => vec![A3_INDEX],
-//         (B1_INDEX, C1_CODE) => vec![],
-//         (B2_INDEX, C1_CODE) => vec![B1_INDEX],
-//         (B3_INDEX, C1_CODE) => vec![B2_INDEX],
-//         (B4_INDEX, C1_CODE) => vec![B3_INDEX],
-//         (C1_INDEX, C1_CODE) => vec![],
-//         (C2_INDEX, C1_CODE) => vec![C1_INDEX],
-//         (C3_INDEX, C1_CODE) => vec![C2_INDEX],
-//         (C4_INDEX, C1_CODE) => vec![C3_INDEX],
-//         (A1_INDEX, C2_CODE) => vec![A2_INDEX],
-//         (A2_INDEX, C2_CODE) => vec![A3_INDEX],
-//         (A3_INDEX, C2_CODE) => vec![A4_INDEX],
-//         (A4_INDEX, C2_CODE) => vec![],
-//         (B1_INDEX, C2_CODE) => vec![B2_INDEX],
-//         (B2_INDEX, C2_CODE) => vec![B3_INDEX],
-//         (B3_INDEX, C2_CODE) => vec![B4_INDEX],
-//         (B4_INDEX, C2_CODE) => vec![],
-//         (C1_INDEX, C2_CODE) => vec![C2_INDEX],
-//         (C2_INDEX, C2_CODE) => vec![C3_INDEX],
-//         (C3_INDEX, C2_CODE) => vec![C4_INDEX],
-//         (C4_INDEX, C2_CODE) => vec![],
-//         (A1_INDEX, G1_CODE) => vec![A2_INDEX, B1_INDEX],
-//         (A2_INDEX, G1_CODE) => vec![A3_INDEX, B2_INDEX, A1_INDEX],
-//         (A3_INDEX, G1_CODE) => vec![A4_INDEX, B3_INDEX, A2_INDEX],
-//         (A4_INDEX, G1_CODE) => vec![B4_INDEX, A3_INDEX],
-//         (B1_INDEX, G1_CODE) => vec![B2_INDEX, C1_INDEX, A1_INDEX],
-//         (B2_INDEX, G1_CODE) => vec![B3_INDEX, C2_INDEX, A2_INDEX, B1_INDEX],
-//         (B3_INDEX, G1_CODE) => vec![B4_INDEX, C3_INDEX, A3_INDEX, B2_INDEX],
-//         (B4_INDEX, G1_CODE) => vec![C4_INDEX, A4_INDEX, B3_INDEX],
-//         (C1_INDEX, G1_CODE) => vec![C2_INDEX, B1_INDEX],
-//         (C2_INDEX, G1_CODE) => vec![C3_INDEX, B2_INDEX, C1_INDEX],
-//         (C3_INDEX, G1_CODE) => vec![C4_INDEX, B3_INDEX, C2_INDEX],
-//         (C4_INDEX, G1_CODE) => vec![B4_INDEX, C3_INDEX],
-//         (A1_INDEX, G2_CODE) => vec![A2_INDEX, B1_INDEX],
-//         (A2_INDEX, G2_CODE) => vec![A3_INDEX, B2_INDEX, A1_INDEX],
-//         (A3_INDEX, G2_CODE) => vec![A4_INDEX, B3_INDEX, A2_INDEX],
-//         (A4_INDEX, G2_CODE) => vec![B4_INDEX, A3_INDEX],
-//         (B1_INDEX, G2_CODE) => vec![B2_INDEX, C1_INDEX, A1_INDEX],
-//         (B2_INDEX, G2_CODE) => vec![B3_INDEX, C2_INDEX, A2_INDEX, B1_INDEX],
-//         (B3_INDEX, G2_CODE) => vec![B4_INDEX, C3_INDEX, A3_INDEX, B2_INDEX],
-//         (B4_INDEX, G2_CODE) => vec![C4_INDEX, A4_INDEX, B3_INDEX],
-//         (C1_INDEX, G2_CODE) => vec![C2_INDEX, B1_INDEX],
-//         (C2_INDEX, G2_CODE) => vec![C3_INDEX, B2_INDEX, C1_INDEX],
-//         (C3_INDEX, G2_CODE) => vec![C4_INDEX, B3_INDEX, C2_INDEX],
-//         (C4_INDEX, G2_CODE) => vec![B4_INDEX, C3_INDEX],
-//         (A1_INDEX, E1_CODE) => vec![B2_INDEX],
-//         (A2_INDEX, E1_CODE) => vec![B3_INDEX, B1_INDEX],
-//         (A3_INDEX, E1_CODE) => vec![B4_INDEX, B2_INDEX],
-//         (A4_INDEX, E1_CODE) => vec![B3_INDEX],
-//         (B1_INDEX, E1_CODE) => vec![C2_INDEX, A2_INDEX],
-//         (B2_INDEX, E1_CODE) => vec![C3_INDEX, A3_INDEX, A1_INDEX, C1_INDEX],
-//         (B3_INDEX, E1_CODE) => vec![C4_INDEX, A4_INDEX, A2_INDEX, C2_INDEX],
-//         (B4_INDEX, E1_CODE) => vec![A3_INDEX, C3_INDEX],
-//         (C1_INDEX, E1_CODE) => vec![B2_INDEX],
-//         (C2_INDEX, E1_CODE) => vec![B3_INDEX, B1_INDEX],
-//         (C3_INDEX, E1_CODE) => vec![B4_INDEX, B2_INDEX],
-//         (C4_INDEX, E1_CODE) => vec![B3_INDEX],
-//         (A1_INDEX, E2_CODE) => vec![B2_INDEX],
-//         (A2_INDEX, E2_CODE) => vec![B3_INDEX, B1_INDEX],
-//         (A3_INDEX, E2_CODE) => vec![B4_INDEX, B2_INDEX],
-//         (A4_INDEX, E2_CODE) => vec![B3_INDEX],
-//         (B1_INDEX, E2_CODE) => vec![C2_INDEX, A2_INDEX],
-//         (B2_INDEX, E2_CODE) => vec![C3_INDEX, A3_INDEX, A1_INDEX, C1_INDEX],
-//         (B3_INDEX, E2_CODE) => vec![C4_INDEX, A4_INDEX, A2_INDEX, C2_INDEX],
-//         (B4_INDEX, E2_CODE) => vec![A3_INDEX, C3_INDEX],
-//         (C1_INDEX, E2_CODE) => vec![B2_INDEX],
-//         (C2_INDEX, E2_CODE) => vec![B3_INDEX, B1_INDEX],
-//         (C3_INDEX, E2_CODE) => vec![B4_INDEX, B2_INDEX],
-//         (C4_INDEX, E2_CODE) => vec![B3_INDEX],
-//         (A1_INDEX, H1_CODE) => vec![A2_INDEX, B1_INDEX],
-//         (A2_INDEX, H1_CODE) => vec![A3_INDEX, B1_INDEX, B2_INDEX, A1_INDEX],
-//         (A3_INDEX, H1_CODE) => vec![A4_INDEX, B2_INDEX, B3_INDEX, A2_INDEX],
-//         (A4_INDEX, H1_CODE) => vec![B3_INDEX, B4_INDEX, A3_INDEX],
-//         (B1_INDEX, H1_CODE) => vec![B2_INDEX, C1_INDEX, A1_INDEX],
-//         (B2_INDEX, H1_CODE) => vec![B3_INDEX, C1_INDEX, C2_INDEX, A1_INDEX, A2_INDEX, B1_INDEX],
-//         (B3_INDEX, H1_CODE) => vec![B4_INDEX, C2_INDEX, C3_INDEX, A2_INDEX, A3_INDEX, B2_INDEX],
-//         (B4_INDEX, H1_CODE) => vec![C3_INDEX, C4_INDEX, A3_INDEX, A4_INDEX, B3_INDEX],
-//         (C1_INDEX, H1_CODE) => vec![C2_INDEX, B1_INDEX],
-//         (C2_INDEX, H1_CODE) => vec![C3_INDEX, B1_INDEX, B2_INDEX, C1_INDEX],
-//         (C3_INDEX, H1_CODE) => vec![C4_INDEX, B2_INDEX, B3_INDEX, C2_INDEX],
-//         (C4_INDEX, H1_CODE) => vec![B3_INDEX, B4_INDEX, C3_INDEX],
-//         (A1_INDEX, H2_CODE) => vec![B1_INDEX, B2_INDEX, A2_INDEX],
-//         (A2_INDEX, H2_CODE) => vec![B2_INDEX, B3_INDEX, A1_INDEX, A3_INDEX],
-//         (A3_INDEX, H2_CODE) => vec![B3_INDEX, B4_INDEX, A2_INDEX, A4_INDEX],
-//         (A4_INDEX, H2_CODE) => vec![B4_INDEX, A3_INDEX],
-//         (B1_INDEX, H2_CODE) => vec![C1_INDEX, C2_INDEX, A2_INDEX, A1_INDEX, B2_INDEX],
-//         (B2_INDEX, H2_CODE) => vec![C2_INDEX, C3_INDEX, A3_INDEX, A2_INDEX, B1_INDEX, B3_INDEX],
-//         (B3_INDEX, H2_CODE) => vec![C3_INDEX, C4_INDEX, A4_INDEX, A3_INDEX, B2_INDEX, B4_INDEX],
-//         (B4_INDEX, H2_CODE) => vec![C4_INDEX, A4_INDEX, B3_INDEX],
-//         (C1_INDEX, H2_CODE) => vec![B2_INDEX, B1_INDEX, C2_INDEX],
-//         (C2_INDEX, H2_CODE) => vec![B3_INDEX, B2_INDEX, C1_INDEX, C3_INDEX],
-//         (C3_INDEX, H2_CODE) => vec![B4_INDEX, B3_INDEX, C2_INDEX, C4_INDEX],
-//         (C4_INDEX, H2_CODE) => vec![B4_INDEX, C3_INDEX],
-//         _ => vec![],
-//     }
-// }
-
 pub fn judge(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3403,6 +3273,7 @@ pub fn nega_scout(
     depth: i32,
     mut alpha: i32,
     beta: i32,
+    node_count: &mut usize,
 ) -> Node {
     let mut best_move = (0, 0);
     // 根のノードの場合、静的評価
@@ -3426,10 +3297,19 @@ pub fn nega_scout(
 
     let mut next_move_list = next_move_list(board, is_player1);
     // 次の手の候補の個数がしきい値以下の場合、negaalphaで探索
+    *node_count += next_move_list.len();
     if next_move_list.len() < SEARCH_THRESHOLD {
         for next_move in next_move_list {
             let next_board = make_moved_board(board, next_move, is_player1);
-            let next_node = nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
+            let next_node = nega_scout(
+                &next_board,
+                &board,
+                !is_player1,
+                depth - 1,
+                -beta,
+                -alpha,
+                node_count,
+            );
             point = -next_node.point;
 
             if point > alpha {
@@ -3459,7 +3339,15 @@ pub fn nega_scout(
 
         // 最初のみ普通に探索
         let next_board = make_moved_board(board, best_move, is_player1);
-        let next_node = nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
+        let next_node = nega_scout(
+            &next_board,
+            &board,
+            !is_player1,
+            depth - 1,
+            -beta,
+            -alpha,
+            node_count,
+        );
         point = -next_node.point;
 
         if point > alpha {
@@ -3476,13 +3364,21 @@ pub fn nega_scout(
                 depth - 1,
                 -alpha - 1,
                 -alpha,
+                node_count,
             );
             point = -next_node.point;
 
             // failed highの場合再探索
             if alpha < point && point < beta {
-                let next_node =
-                    nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
+                let next_node = nega_scout(
+                    &next_board,
+                    &board,
+                    !is_player1,
+                    depth - 1,
+                    -beta,
+                    -alpha,
+                    node_count,
+                );
                 point = -next_node.point;
             }
 
@@ -3493,78 +3389,6 @@ pub fn nega_scout(
             if alpha >= beta {
                 break;
             }
-        }
-    }
-
-    Node {
-        best_move,
-        point: alpha,
-    }
-}
-
-pub fn nega_alpha(
-    board: &bit_board::bit_board::BitBoard,
-    bef_board: &bit_board::bit_board::BitBoard,
-    is_player1: bool,
-    depth: i32,
-    mut alpha: i32,
-    beta: i32,
-) -> Node {
-    let mut best_move = (0, 0);
-    // 根のノードの場合、静的評価
-    if depth == 0 {
-        let point: i32 = eval_function(board, bef_board, is_player1);
-        print_nega(depth, point, best_move);
-        return Node { best_move, point };
-    }
-    // 勝敗がついていれば終了
-    let mut point = judge(board, bef_board, is_player1);
-    if point != 0 {
-        if point == WIN_POINT {
-            point += depth;
-        } else {
-            point -= depth;
-        }
-
-        //print_nega(depth, point, best_move);
-        return Node { best_move, point };
-    }
-    let next_move_list = next_move_list(board, is_player1);
-    for next_move in next_move_list {
-        // if depth == DEPTH {
-        //     let a = 0;
-        // }
-        //print_nega(depth, 9999999, next_move);
-        // if depth == DEPTH && next_move == (1024, 128) {
-        //     if depth == DEPTH && next_move == (16, 256) {
-        //         let a = 0;
-        //     }
-        //     let a = 0;
-        //     print!("{}", board);
-        // }
-        let next_board = make_moved_board(board, next_move, is_player1);
-        // println!("{}", next_board);
-        // if depth == DEPTH && next_move == (128, 16) {
-        //     let a = 0;
-        //     print!("{}", next_board);
-        // }
-        let next_node = nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
-        point = -next_node.point;
-        // if depth == DEPTH {
-        //     println!(
-        //         "{} {} {}",
-        //         point,
-        //         get_board_name(next_node.best_move.0),
-        //         get_board_name(next_node.best_move.1)
-        //     );
-        // }
-        //print_nega(depth, point, (-1, -1));
-        if point > alpha {
-            alpha = point;
-            best_move = next_move;
-        }
-        if alpha >= beta {
-            break;
         }
     }
 
