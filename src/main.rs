@@ -149,20 +149,47 @@ fn main() {
                         let board = make_bit_board(&mut board_vec);
                         let clone_board = board.clone();
                         let depth = DEPTH;
-                        // println!("{}", board);
+                        let mut node_count: usize = 0;
+
                         let first_node_count: usize = next_move_list(&board, is_player1).len();
+                        let p1_hand_count: u32 = (&board.white_b & D_HAND_MASK).count_ones();
+                        let p2_hand_count: u32 = (&board.black_b & E_HAND_MASK).count_ones();
+                        let best_node;
 
                         let start = Instant::now();
-                        let mut node_count: usize = 0;
-                        let best_node: Node = nega_scout(
-                            &board,
-                            &bef_board,
-                            is_player1,
-                            depth,
-                            -50000,
-                            50000,
-                            &mut node_count,
-                        );
+
+                        if p1_hand_count + p2_hand_count < 3 || first_node_count < 16 {
+                            best_node = nega_scout(
+                                &board,
+                                &bef_board,
+                                is_player1,
+                                depth,
+                                -50000,
+                                50000,
+                                &mut node_count,
+                            );
+                        } else if p1_hand_count + p2_hand_count < 5 || first_node_count < 26 {
+                            best_node = nega_scout(
+                                &board,
+                                &bef_board,
+                                is_player1,
+                                depth - 2,
+                                -50000,
+                                50000,
+                                &mut node_count,
+                            );
+                        } else {
+                            best_node = nega_scout(
+                                &board,
+                                &bef_board,
+                                is_player1,
+                                depth - 4,
+                                -50000,
+                                50000,
+                                &mut node_count,
+                            );
+                        }
+
                         let end = start.elapsed();
 
                         let move_str = String::from("mv ")
@@ -190,13 +217,14 @@ fn main() {
                         }
                         //println!("{}", next_board);
                         println!(
-                            "{}, point:{:>05}, count:{:>010}, time:{:>011}, first count:{:>02}, n/f{:>09}",
+                            "{}, point:{:>05}, count:{:>010}, time:{:>012}, first count:{:>02}, hand count:{:>01}, {:>01}",
                             move_str,
                             best_node.point,
                             node_count,
                             end.as_nanos(),
                             first_node_count,
-                            node_count / first_node_count,
+                            p1_hand_count,
+                            p2_hand_count,
                         );
                         //println!("-------------------");
 
@@ -258,13 +286,6 @@ pub fn make_bit_board(board_vec: &mut Vec<u8>) -> bit_board::bit_board::BitBoard
             }
         }
     }
-    // println!("white_b:{:<012b}", white_b);
-    // println!("black_b:{:<012b}", black_b);
-    // println!("kb:{:<012b}", kb);
-    // println!("rb:{:<012b}", rb);
-    // println!("bb:{:<012b}", bb);
-    // println!("pb:{:<012b}", pb);
-    // println!("ppb:{:<012b}", ppb);
 
     bit_board::bit_board::BitBoard {
         white_b,
