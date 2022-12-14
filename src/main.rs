@@ -78,7 +78,7 @@ const WIN_POINT: i32 = 10000;
 const LOSE_POINT: i32 = -10000;
 
 // パラメータ
-const DEPTH: i32 = 11;
+const DEPTH: i32 = 13;
 const SEARCH_THRESHOLD: usize = 10;
 const HOST_NAME: &str = "localhost";
 //const HOST_NAME: &str = "192.168.11.4";
@@ -146,66 +146,46 @@ fn main() {
                             .read_until(b'\n', &mut board_vec)
                             .expect("Receive failure.");
 
+                        // bitboardに変換
                         let board = make_bit_board(&mut board_vec);
                         let clone_board = board.clone();
-                        let depth = DEPTH;
-                        let mut node_count: usize = 0;
+                        let best_node;
+                        println!("{:#?}", board);
 
+                        // 持ち駒と最初の探索数によって深さを変える
+                        let mut depth: i32 = DEPTH;
                         let first_node_count: usize = next_move_list(&board, is_player1).len();
                         let p1_hand_count: u32 = (&board.white_b & D_HAND_MASK).count_ones();
                         let p2_hand_count: u32 = (&board.black_b & E_HAND_MASK).count_ones();
-                        let best_node;
-
-                        let start = Instant::now();
-
-                        if p1_hand_count + p2_hand_count < 3 || first_node_count < 16 {
-                            best_node = nega_scout(
-                                &board,
-                                &bef_board,
-                                is_player1,
-                                depth,
-                                -50000,
-                                50000,
-                                &mut node_count,
-                            );
+                        if p1_hand_count + p2_hand_count == 0 || first_node_count < 16 {
+                            depth = depth;
+                        } else if p1_hand_count + p2_hand_count < 3 || first_node_count < 16 {
+                            depth = depth;
                         } else if p1_hand_count + p2_hand_count < 5 || first_node_count < 26 {
-                            best_node = nega_scout(
-                                &board,
-                                &bef_board,
-                                is_player1,
-                                depth - 2,
-                                -50000,
-                                50000,
-                                &mut node_count,
-                            );
+                            depth = depth;
                         } else {
-                            best_node = nega_scout(
-                                &board,
-                                &bef_board,
-                                is_player1,
-                                depth - 4,
-                                -50000,
-                                50000,
-                                &mut node_count,
-                            );
+                            depth = depth;
                         }
 
+                        // 探索
+                        let start = Instant::now();
+                        best_node =
+                            nega_scout(&board, &bef_board, is_player1, depth, -50000, 50000);
                         let end = start.elapsed();
 
+                        // 自分の手を送信
                         let move_str = String::from("mv ")
                             + &get_board_name(best_node.best_move.0)
                             + " "
                             + &get_board_name(best_node.best_move.1);
-
                         let mut buffer: Vec<u8> = Vec::new();
-                        // 自分の手を送信
                         write_socket(&mut writer, &move_str);
                         reader
                             .read_until(b'\n', &mut buffer)
                             .expect("Receive failure.");
 
+                        // 勝敗がついているか確認
                         let next_board = make_moved_board(&board, best_node.best_move, is_player1);
-                        //println!("{}", next_board);
                         let point = judge(&next_board, &clone_board, is_player1);
                         bef_board = clone_board;
                         if point == WIN_POINT {
@@ -215,16 +195,18 @@ fn main() {
                             println!("you lose!");
                             break;
                         }
-                        //println!("{}", next_board);
+
                         println!(
-                            "{}, point:{:>05}, count:{:>010}, time:{:>012}, first count:{:>02}, hand count:{:>01}, {:>01}",
+                            "{}, point:{:>05}, time:{}.{}s ({}), first node:{:>02}, hand count:{:>01} + {:>01} = {:>01}",
                             move_str,
                             best_node.point,
-                            node_count,
-                            end.as_nanos(),
+                            end.as_nanos() / 1000000000,
+                            end.as_nanos() / 1000000 - end.as_nanos() / 1000000000,
+                            end.as_nanos() ,
                             first_node_count,
                             p1_hand_count,
                             p2_hand_count,
+                            p1_hand_count + p2_hand_count,
                         );
                         //println!("-------------------");
 
@@ -3294,7 +3276,6 @@ pub fn nega_scout(
     depth: i32,
     mut alpha: i32,
     beta: i32,
-    node_count: &mut usize,
 ) -> Node {
     let mut best_move = (0, 0);
     // 根のノードの場合、静的評価
@@ -3318,19 +3299,10 @@ pub fn nega_scout(
 
     let mut next_move_list = next_move_list(board, is_player1);
     // 次の手の候補の個数がしきい値以下の場合、negaalphaで探索
-    *node_count += next_move_list.len();
     if next_move_list.len() < SEARCH_THRESHOLD {
         for next_move in next_move_list {
             let next_board = make_moved_board(board, next_move, is_player1);
-            let next_node = nega_scout(
-                &next_board,
-                &board,
-                !is_player1,
-                depth - 1,
-                -beta,
-                -alpha,
-                node_count,
-            );
+            let next_node = nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
             point = -next_node.point;
 
             if point > alpha {
@@ -3360,15 +3332,7 @@ pub fn nega_scout(
 
         // 最初のみ普通に探索
         let next_board = make_moved_board(board, best_move, is_player1);
-        let next_node = nega_scout(
-            &next_board,
-            &board,
-            !is_player1,
-            depth - 1,
-            -beta,
-            -alpha,
-            node_count,
-        );
+        let next_node = nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
         point = -next_node.point;
 
         if point > alpha {
@@ -3385,21 +3349,13 @@ pub fn nega_scout(
                 depth - 1,
                 -alpha - 1,
                 -alpha,
-                node_count,
             );
             point = -next_node.point;
 
             // failed highの場合再探索
             if alpha < point && point < beta {
-                let next_node = nega_scout(
-                    &next_board,
-                    &board,
-                    !is_player1,
-                    depth - 1,
-                    -beta,
-                    -alpha,
-                    node_count,
-                );
+                let next_node =
+                    nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
                 point = -next_node.point;
             }
 
