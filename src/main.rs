@@ -154,17 +154,14 @@ fn main() {
 
                         // 持ち駒と最初の探索数によって深さを変える
                         let mut depth: i32 = DEPTH;
-                        let first_node_count: usize = next_move_list(&board, is_player1).len();
                         let p1_hand_count: u32 = (&board.white_b & D_HAND_MASK).count_ones();
                         let p2_hand_count: u32 = (&board.black_b & E_HAND_MASK).count_ones();
-                        if p1_hand_count + p2_hand_count == 0 || first_node_count < 16 {
+                        if p1_hand_count + p2_hand_count <= 2 {
                             depth = depth;
-                        } else if p1_hand_count + p2_hand_count < 3 || first_node_count < 16 {
-                            depth = depth;
-                        } else if p1_hand_count + p2_hand_count < 5 || first_node_count < 26 {
-                            depth = depth;
+                        } else if p1_hand_count + p2_hand_count <= 4 {
+                            depth = depth - 1;
                         } else {
-                            depth = depth;
+                            depth = depth - 2;
                         }
 
                         // 探索
@@ -197,13 +194,12 @@ fn main() {
                         }
 
                         println!(
-                            "{}, point:{:>05}, time:{}.{}s ({}), first node:{:>02}, hand count:{:>01} + {:>01} = {:>01}",
+                            "{}, point:{:>05}, time:{}.{}s ({}), hand count:{:>01} + {:>01} = {:>01}",
                             move_str,
                             best_node.point,
                             end.as_nanos() / 1000000000,
                             end.as_nanos() / 1000000 - end.as_nanos() / 1000000000,
                             end.as_nanos() ,
-                            first_node_count,
                             p1_hand_count,
                             p2_hand_count,
                             p1_hand_count + p2_hand_count,
