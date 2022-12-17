@@ -308,35 +308,35 @@ pub fn piece_to_pos(s: (u8, u8)) -> i32 {
     }
 }
 
-pub fn pos_to_piece(s: i32) -> (u8, u8) {
-    match s {
-        A1_INDEX_DEC => (b'A', b'1'),
-        B1_INDEX_DEC => (b'B', b'1'),
-        C1_INDEX_DEC => (b'C', b'1'),
-        A2_INDEX_DEC => (b'A', b'2'),
-        B2_INDEX_DEC => (b'B', b'2'),
-        C2_INDEX_DEC => (b'C', b'2'),
-        A3_INDEX_DEC => (b'A', b'3'),
-        B3_INDEX_DEC => (b'B', b'3'),
-        C3_INDEX_DEC => (b'C', b'3'),
-        A4_INDEX_DEC => (b'A', b'4'),
-        B4_INDEX_DEC => (b'B', b'4'),
-        C4_INDEX_DEC => (b'C', b'4'),
-        D1_INDEX_DEC => (b'D', b'1'),
-        D2_INDEX_DEC => (b'D', b'2'),
-        D3_INDEX_DEC => (b'D', b'3'),
-        D4_INDEX_DEC => (b'D', b'4'),
-        D5_INDEX_DEC => (b'D', b'5'),
-        D6_INDEX_DEC => (b'D', b'6'),
-        E1_INDEX_DEC => (b'E', b'1'),
-        E2_INDEX_DEC => (b'E', b'2'),
-        E3_INDEX_DEC => (b'E', b'3'),
-        E4_INDEX_DEC => (b'E', b'4'),
-        E5_INDEX_DEC => (b'E', b'5'),
-        E6_INDEX_DEC => (b'E', b'6'),
-        _ => (0, 0),
-    }
-}
+// pub fn pos_to_piece(s: i32) -> (u8, u8) {
+//     match s {
+//         A1_INDEX_DEC => (b'A', b'1'),
+//         B1_INDEX_DEC => (b'B', b'1'),
+//         C1_INDEX_DEC => (b'C', b'1'),
+//         A2_INDEX_DEC => (b'A', b'2'),
+//         B2_INDEX_DEC => (b'B', b'2'),
+//         C2_INDEX_DEC => (b'C', b'2'),
+//         A3_INDEX_DEC => (b'A', b'3'),
+//         B3_INDEX_DEC => (b'B', b'3'),
+//         C3_INDEX_DEC => (b'C', b'3'),
+//         A4_INDEX_DEC => (b'A', b'4'),
+//         B4_INDEX_DEC => (b'B', b'4'),
+//         C4_INDEX_DEC => (b'C', b'4'),
+//         D1_INDEX_DEC => (b'D', b'1'),
+//         D2_INDEX_DEC => (b'D', b'2'),
+//         D3_INDEX_DEC => (b'D', b'3'),
+//         D4_INDEX_DEC => (b'D', b'4'),
+//         D5_INDEX_DEC => (b'D', b'5'),
+//         D6_INDEX_DEC => (b'D', b'6'),
+//         E1_INDEX_DEC => (b'E', b'1'),
+//         E2_INDEX_DEC => (b'E', b'2'),
+//         E3_INDEX_DEC => (b'E', b'3'),
+//         E4_INDEX_DEC => (b'E', b'4'),
+//         E5_INDEX_DEC => (b'E', b'5'),
+//         E6_INDEX_DEC => (b'E', b'6'),
+//         _ => (0, 0),
+//     }
+// }
 
 pub fn make_moved_board(
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3406,36 +3406,36 @@ pub fn get_board_name(i: i32) -> String {
     }
 }
 
-pub fn print_move(move_vec: (i32, i32)) {
-    println!("{:<024b}", move_vec.0);
-    println!("{:<024b}", move_vec.1);
-}
+// pub fn print_move(move_vec: (i32, i32)) {
+//     println!("{:<024b}", move_vec.0);
+//     println!("{:<024b}", move_vec.1);
+// }
 
-pub fn print_nega(depth: i32, point: i32, best_move: (i32, i32)) {
-    if depth > 0 {
-        for _ in 0..DEPTH - depth {
-            print!("                ");
-        }
-        if depth == 0 {
-            println!("{} ({})", point, depth,);
-        } else if point == 9999999 {
-            println!(
-                "{}=>{}",
-                get_board_name(best_move.0),
-                get_board_name(best_move.1),
-            );
-        } else if best_move == (0, 0) {
-            println!("{} ({})", point, depth,);
-        } else if best_move == (-1, -1) {
-            println!("{} ({})", point, depth,);
-        } else {
-            println!(
-                "{} ({}) {}=>{}",
-                point,
-                depth,
-                get_board_name(best_move.0),
-                get_board_name(best_move.1),
-            );
-        }
-    }
-}
+// pub fn print_nega(depth: i32, point: i32, best_move: (i32, i32)) {
+//     if depth > 0 {
+//         for _ in 0..DEPTH - depth {
+//             print!("                ");
+//         }
+//         if depth == 0 {
+//             println!("{} ({})", point, depth,);
+//         } else if point == 9999999 {
+//             println!(
+//                 "{}=>{}",
+//                 get_board_name(best_move.0),
+//                 get_board_name(best_move.1),
+//             );
+//         } else if best_move == (0, 0) {
+//             println!("{} ({})", point, depth,);
+//         } else if best_move == (-1, -1) {
+//             println!("{} ({})", point, depth,);
+//         } else {
+//             println!(
+//                 "{} ({}) {}=>{}",
+//                 point,
+//                 depth,
+//                 get_board_name(best_move.0),
+//                 get_board_name(best_move.1),
+//             );
+//         }
+//     }
+// }
