@@ -58,6 +58,13 @@ const E4_INDEX: i32 = 1 << 21;
 const E5_INDEX: i32 = 1 << 22;
 const E6_INDEX: i32 = 1 << 23;
 
+const BOARD_MASK: i32 = 0b111_111_111_111;
+const HAND_MASK: i32 = 0b111111_111111 << 12;
+const D_TRY_MASK: i32 = 0b111;
+const E_TRY_MASK: i32 = 0b111 << 9;
+const D_HAND_MASK: i32 = 0b111111 << 12;
+const E_HAND_MASK: i32 = 0b111111 << 18;
+
 const PB_BOARD_POINT: i32 = 1;
 const PB_HAND_POINT: i32 = 2;
 const BB_BOARD_POINT: i32 = 6;
@@ -65,13 +72,6 @@ const BB_HAND_POINT: i32 = 8;
 const RB_BOARD_POINT: i32 = 5;
 const RB_HAND_POINT: i32 = 7;
 const PPB_BOARD_POINT: i32 = 6;
-
-const TRY_MASK1: i32 = 0b111;
-const TRY_MASK4: i32 = 0b111 << 9;
-const BOARD_MASK: i32 = 0b111_111_111_111;
-const HAND_MASK: i32 = 0b111111_111111 << 12;
-const D_HAND_MASK: i32 = 0b111111 << 12;
-const E_HAND_MASK: i32 = 0b111111 << 18;
 
 // 勝敗判定時のポイント
 const WIN_POINT: i32 = 10000;
@@ -120,13 +120,16 @@ fn main() {
                     is_player1 = !is_player1;
                 }
                 let mut bef_board = bit_board::bit_board::BitBoard {
-                    white_b: 0b000_000_000_010,
-                    black_b: 0b010_000_000_000,
-                    kb: 0b010_000_000_010,
-                    rb: 0,
-                    bb: 0,
-                    pb: 0,
-                    ppb: 0,
+                    lb1: 0b010_000_000_010,
+                    kb1: 0,
+                    zb1: 0,
+                    hb1: 0,
+                    nb1: 0,
+                    lb2: 0b010_000_000_010,
+                    kb2: 0,
+                    zb2: 0,
+                    hb2: 0,
+                    nb2: 0,
                 };
 
                 loop {
@@ -154,8 +157,20 @@ fn main() {
 
                         // 持ち駒と最初の探索数によって深さを変える
                         let mut depth: i32 = DEPTH;
-                        let p1_hand_count: u32 = (&board.white_b & D_HAND_MASK).count_ones();
-                        let p2_hand_count: u32 = (&board.black_b & E_HAND_MASK).count_ones();
+                        let p1_hand_count: u32 = (D_HAND_MASK
+                            & &board.lb1
+                            & &board.kb1
+                            & &board.zb1
+                            & &board.hb1
+                            & &board.nb1)
+                            .count_ones();
+                        let p2_hand_count: u32 = (E_HAND_MASK
+                            & &board.lb2
+                            & &board.kb2
+                            & &board.zb2
+                            & &board.hb2
+                            & &board.nb2)
+                            .count_ones();
                         if p1_hand_count + p2_hand_count <= 2 {
                             depth = depth;
                         } else if p1_hand_count + p2_hand_count <= 4 {
@@ -232,13 +247,16 @@ pub fn write_socket(writer: &mut BufWriter<&TcpStream>, msg: &str) {
 }
 
 pub fn make_bit_board(board_vec: &mut Vec<u8>) -> bit_board::bit_board::BitBoard {
-    let mut white_b: i32 = 0;
-    let mut black_b: i32 = 0;
-    let mut kb: i32 = 0;
-    let mut rb: i32 = 0;
-    let mut bb: i32 = 0;
-    let mut pb: i32 = 0;
-    let mut ppb: i32 = 0;
+    let mut lb1: i32 = 0;
+    let mut kb1: i32 = 0;
+    let mut zb1: i32 = 0;
+    let mut hb1: i32 = 0;
+    let mut nb1: i32 = 0;
+    let mut lb2: i32 = 0;
+    let mut kb2: i32 = 0;
+    let mut zb2: i32 = 0;
+    let mut hb2: i32 = 0;
+    let mut nb2: i32 = 0;
     let board: Vec<&str> = std::str::from_utf8(&board_vec[0..board_vec.len() - 3])
         .unwrap()
         .split(", ")
@@ -250,29 +268,38 @@ pub fn make_bit_board(board_vec: &mut Vec<u8>) -> bit_board::bit_board::BitBoard
             //ex. "A1 g2"
             let p = piece_to_pos((b_iter[0], b_iter[1]));
             if b_iter[4] == b'1' {
-                white_b |= 1 << p;
+                match b_iter[3] {
+                    b'l' => lb1 |= 1 << p,
+                    b'g' => kb1 |= 1 << p,
+                    b'e' => zb1 |= 1 << p,
+                    b'c' => hb1 |= 1 << p,
+                    b'h' => nb1 |= 1 << p,
+                    _ => (),
+                }
             } else if b_iter[4] == b'2' {
-                black_b |= 1 << p;
-            }
-            match b_iter[3] {
-                b'l' => kb |= 1 << p,
-                b'g' => rb |= 1 << p,
-                b'e' => bb |= 1 << p,
-                b'c' => pb |= 1 << p,
-                b'h' => ppb |= 1 << p,
-                _ => (),
+                match b_iter[3] {
+                    b'l' => lb2 |= 1 << p,
+                    b'g' => kb2 |= 1 << p,
+                    b'e' => zb2 |= 1 << p,
+                    b'c' => hb2 |= 1 << p,
+                    b'h' => nb2 |= 1 << p,
+                    _ => (),
+                }
             }
         }
     }
 
     bit_board::bit_board::BitBoard {
-        white_b,
-        black_b,
-        kb,
-        rb,
-        bb,
-        pb,
-        ppb,
+        lb1,
+        kb1,
+        zb1,
+        hb1,
+        nb1,
+        lb2,
+        kb2,
+        zb2,
+        hb2,
+        nb2,
     }
 }
 
@@ -338,180 +365,154 @@ pub fn piece_to_pos(s: (u8, u8)) -> i32 {
 //     }
 // }
 
+#[inline(always)]
 pub fn make_moved_board(
     bef_board: &bit_board::bit_board::BitBoard,
     move_vec: (i32, i32),
     is_player1: bool,
 ) -> bit_board::bit_board::BitBoard {
-    let src = move_vec.0;
-    let dst = move_vec.1;
+    let src: i32 = move_vec.0;
+    let dst: i32 = move_vec.1;
     let mut board = bef_board.clone();
 
-    // print_move(move_vec);
-    // println!("{}", board);
     // プレイヤー1の場合
     if is_player1 {
-        //println!("{}", board);
-        // 移動先に相手のコマがある場合
-        if board.black_b & dst != 0 {
-            // 後手の盤面で取られる駒を削除
-            board.black_b = board.black_b & !dst;
-            //println!("{}", board);
-            // 持ち駒に追加する場所に駒を追加
-            let hand_posi = (board.white_b & D_HAND_MASK) + (1 << 12);
-            board.white_b += hand_posi;
-            //println!("{}", board);
-            if board.kb & dst != 0 {
-                // ライオンの盤面の駒を消し、取った駒を手持ちに加える
-                board.kb = (board.kb & !dst) | hand_posi;
-            } else if board.rb & dst != 0 {
-                // キリンの盤面の駒を消し、取った駒を手持ちに加える
-                board.rb = (board.rb & !dst) | hand_posi;
-            } else if board.bb & dst != 0 {
-                // ゾウの盤面の駒を消し、取った駒を手持ちに加える
-                board.bb = (board.bb & !dst) | hand_posi;
-            } else if board.pb & dst != 0 {
-                // ヒヨコの盤面の駒を消し、取った駒を手持ちに加える
-                board.pb = (board.pb & !dst) | hand_posi;
-            } else if board.ppb & dst != 0 {
-                // ニワトリの盤面の駒を消し、取った駒を手持ちに加える（ヒヨコとして）
-                board.ppb = board.ppb & !dst;
-                board.pb = board.pb | hand_posi;
-            }
-            //println!("{}", board);
-        }
-        // 先手の盤面を更新
-        board.white_b = board.white_b & !src | dst;
-        // ライオンの盤面を更新
-        if board.kb & src != 0 {
-            board.kb = board.kb & !src | dst;
-        // キリンの盤面を更新
-        } else if board.rb & src != 0 {
-            board.rb = board.rb & !src | dst;
-        // ゾウの盤面を更新
-        } else if board.bb & src != 0 {
-            board.bb = board.bb & !src | dst;
         // ヒヨコの盤面を更新
-        } else if board.pb & src != 0 {
-            if (src & D_HAND_MASK == 0) & (dst == A1_INDEX || dst == B1_INDEX || dst == C1_INDEX) {
-                board.pb = board.pb & !src;
-                board.ppb = board.ppb | dst;
+        if board.hb1 & src != 0 {
+            if (src & D_HAND_MASK == 0) && (dst & D_TRY_MASK != 0) {
+                board.hb1 = board.hb1 & !src;
+                board.nb1 = board.nb1 | dst;
             } else {
-                board.pb = board.pb & !src | dst;
+                board.hb1 = board.hb1 & !src | dst;
             }
-        // ニワトリの盤面を更新
-        } else if board.ppb & src != 0 {
-            board.ppb = board.ppb & !src | dst;
+        } else if board.lb1 & src != 0 {
+            // ライオンの盤面を更新
+            board.lb1 = board.lb1 & !src | dst;
+        } else if board.kb1 & src != 0 {
+            // キリンの盤面を更新
+            board.kb1 = board.kb1 & !src | dst;
+        } else if board.zb1 & src != 0 {
+            // ゾウの盤面を更新
+            board.zb1 = board.zb1 & !src | dst;
+        } else if board.nb1 & src != 0 {
+            // ニワトリの盤面を更新
+            board.nb1 = board.nb1 & !src | dst;
         }
-        // println!("{}", board);
-
         // 打った駒が手ごまの場合
         if src & D_HAND_MASK != 0 {
-            let shift_bits = !(src - 1) & D_HAND_MASK;
             // 打った手駒のあった場所より右側に駒があった時、その駒たちをずらす（打った駒のD列の数字より大きい数字のマスに駒があるとき）
-            if shift_bits & board.white_b != 0 {
-                let non_shift_bits = (src - 1) & D_HAND_MASK;
-                board.white_b = (board.white_b & (!D_HAND_MASK | non_shift_bits))
-                    | ((board.white_b & shift_bits) >> 1);
-                board.rb =
-                    (board.rb & (!D_HAND_MASK | non_shift_bits)) | ((board.rb & shift_bits) >> 1);
-                board.bb =
-                    (board.bb & (!D_HAND_MASK | non_shift_bits)) | ((board.bb & shift_bits) >> 1);
-                board.pb =
-                    (board.pb & (!D_HAND_MASK | non_shift_bits)) | ((board.pb & shift_bits) >> 1);
+            let shift_bits: i32 = !(src - 1) & D_HAND_MASK;
+            let non_shift_bits: i32 = (src - 1) & D_HAND_MASK | !D_HAND_MASK;
+            board.kb1 = (board.kb1 & non_shift_bits) | ((board.kb1 & shift_bits) >> 1);
+            board.zb1 = (board.zb1 & non_shift_bits) | ((board.zb1 & shift_bits) >> 1);
+            board.hb1 = (board.hb1 & non_shift_bits) | ((board.hb1 & shift_bits) >> 1);
+        } else {
+            // 移動先に相手のコマがある場合
+            if board.hb2 & dst != 0 {
+                // ヒヨコの盤面の駒を消し、取った駒を手持ちに加える
+                board.hb2 = board.hb2 & !dst;
+                board.hb1 =
+                    board.hb1 | (((board.kb1 | board.zb1 | board.hb1) & D_HAND_MASK) + (1 << 12));
+            } else if board.lb2 & dst != 0 {
+                // ライオンの盤面の駒を消し、取った駒を手持ちに加える
+                board.lb2 = board.lb2 & !dst;
+                board.lb1 =
+                    board.lb1 | (((board.kb1 | board.zb1 | board.hb1) & D_HAND_MASK) + (1 << 12));
+            } else if board.kb2 & dst != 0 {
+                // キリンの盤面の駒を消し、取った駒を手持ちに加える
+                board.kb2 = board.kb2 & !dst;
+                board.kb1 =
+                    board.kb1 | (((board.kb1 | board.zb1 | board.hb1) & D_HAND_MASK) + (1 << 12));
+            } else if board.zb2 & dst != 0 {
+                // ゾウの盤面の駒を消し、取った駒を手持ちに加える
+                board.zb2 = board.zb2 & !dst;
+                board.zb1 =
+                    board.zb1 | (((board.kb1 | board.zb1 | board.hb1) & D_HAND_MASK) + (1 << 12));
+            } else if board.nb2 & dst != 0 {
+                // ニワトリの盤面の駒を消し、取った駒を手持ちに加える（ヒヨコとして）
+                board.nb2 = board.nb2 & !dst;
+                board.hb1 =
+                    board.hb1 | (((board.kb1 | board.zb1 | board.hb1) & D_HAND_MASK) + (1 << 12));
             }
         }
     }
     // プレイヤー2の場合
     else {
-        //println!("{}", board);
-        // 移動先に相手のコマがある場合
-        if board.white_b & dst != 0 {
-            // 先手の盤面を更新
-            board.white_b = board.white_b & !dst;
-            //println!("{}", board);
-            // 持ち駒に追加
-            let hand_posi = (board.black_b & E_HAND_MASK) + (1 << 18);
-            board.black_b += hand_posi;
-            //println!("{}", board);
-            if board.kb & dst != 0 {
-                // ライオンの盤面の駒を消し、取った駒を手持ちに加える
-                board.kb = (board.kb & !dst) | hand_posi;
-            } else if board.rb & dst != 0 {
-                // キリンの盤面の駒を消し、取った駒を手持ちに加える
-                board.rb = (board.rb & !dst) | hand_posi;
-            } else if board.bb & dst != 0 {
-                // ゾウの盤面の駒を消し、取った駒を手持ちに加える
-                board.bb = (board.bb & !dst) | hand_posi;
-            } else if board.pb & dst != 0 {
-                // ヒヨコの盤面の駒を消し、取った駒を手持ちに加える
-                board.pb = (board.pb & !dst) | hand_posi;
-            } else if board.ppb & dst != 0 {
-                // ニワトリの盤面の駒を消し、取った駒を手持ちに加える（ヒヨコとして）
-                board.ppb = board.ppb & !dst;
-                board.pb = board.pb | hand_posi;
-            }
-            //println!("{}", board);
-        }
-        // 後手の盤面を更新
-        board.black_b = board.black_b & !src | dst;
-        //println!("{}", board);
-        // ライオンの盤面を更新
-        if board.kb & src != 0 {
-            board.kb = board.kb & !src | dst;
-        // キリンの盤面を更新
-        } else if board.rb & src != 0 {
-            board.rb = board.rb & !src | dst;
-        // ゾウの盤面を更新
-        } else if board.bb & src != 0 {
-            board.bb = board.bb & !src | dst;
         // ヒヨコの盤面を更新
-        } else if board.pb & src != 0 {
-            if (src & E_HAND_MASK == 0) & (dst == A4_INDEX || dst == B4_INDEX || dst == C4_INDEX) {
-                board.pb = board.pb & !src;
-                board.ppb = board.ppb | dst;
+        if board.hb2 & src != 0 {
+            if (src & E_HAND_MASK == 0) && (dst & E_TRY_MASK != 0) {
+                board.hb2 = board.hb2 & !src;
+                board.nb2 = board.nb2 | dst;
             } else {
-                board.pb = board.pb & !src | dst;
+                board.hb2 = board.hb2 & !src | dst;
             }
-        // ニワトリの盤面を更新
-        } else if board.ppb & src != 0 {
-            board.ppb = board.ppb & !src | dst;
+        } else if board.lb2 & src != 0 {
+            // ライオンの盤面を更新
+            board.lb2 = board.lb2 & !src | dst;
+        } else if board.kb2 & src != 0 {
+            // キリンの盤面を更新
+            board.kb2 = board.kb2 & !src | dst;
+        } else if board.zb2 & src != 0 {
+            // ゾウの盤面を更新
+            board.zb2 = board.zb2 & !src | dst;
+        } else if board.nb2 & src != 0 {
+            // ニワトリの盤面を更新
+            board.nb2 = board.nb2 & !src | dst;
         }
-        //println!("{}", board);
-
         // 打った駒が手ごまの場合
         if src & E_HAND_MASK != 0 {
-            let shift_bits = !(src - 1) & E_HAND_MASK;
-            // 打った手駒のあった場所より右側に駒があった時、その駒たちをずらす（打った駒のD列の数字より大きい数字のマスに駒があるとき）
-            if shift_bits & board.black_b != 0 {
-                let non_shift_bits = (src - 1) & E_HAND_MASK;
-                board.black_b = (board.black_b & (!E_HAND_MASK | non_shift_bits))
-                    | ((board.black_b & shift_bits) >> 1);
-                board.rb =
-                    (board.rb & (!E_HAND_MASK | non_shift_bits)) | ((board.rb & shift_bits) >> 1);
-                board.bb =
-                    (board.bb & (!E_HAND_MASK | non_shift_bits)) | ((board.bb & shift_bits) >> 1);
-                board.pb =
-                    (board.pb & (!E_HAND_MASK | non_shift_bits)) | ((board.pb & shift_bits) >> 1);
-            }
+            // 打った手駒のあった場所より右側に駒があった時、その駒たちをずらす（打った駒のE列の数字より大きい数字のマスに駒があるとき）
+            let shift_bits: i32 = !(src - 1) & E_HAND_MASK;
+            let non_shift_bits: i32 = (src - 1) & E_HAND_MASK | !E_HAND_MASK;
+            board.kb2 = (board.kb2 & non_shift_bits) | ((board.kb2 & shift_bits) >> 1);
+            board.zb2 = (board.zb2 & non_shift_bits) | ((board.zb2 & shift_bits) >> 1);
+            board.hb2 = (board.hb2 & non_shift_bits) | ((board.hb2 & shift_bits) >> 1);
+        } else
+        // 移動先に相手のコマがある場合
+        if board.hb1 & dst != 0 {
+            // ヒヨコの盤面の駒を消し、取った駒を手持ちに加える
+            board.hb1 = board.hb1 & !dst;
+            board.hb2 =
+                board.hb2 | (((board.kb2 | board.zb2 | board.hb2) & E_HAND_MASK) + (1 << 18));
+        } else if board.lb1 & dst != 0 {
+            // ライオンの盤面の駒を消し、取った駒を手持ちに加える
+            board.lb1 = board.lb1 & !dst;
+            board.lb2 =
+                board.lb2 | (((board.kb2 | board.zb2 | board.hb2) & E_HAND_MASK) + (1 << 18));
+        } else if board.kb1 & dst != 0 {
+            // キリンの盤面の駒を消し、取った駒を手持ちに加える
+            board.kb1 = board.kb1 & !dst;
+            board.kb2 =
+                board.kb2 | (((board.kb2 | board.zb2 | board.hb2) & E_HAND_MASK) + (1 << 18));
+        } else if board.zb1 & dst != 0 {
+            // ゾウの盤面の駒を消し、取った駒を手持ちに加える
+            board.zb1 = board.zb1 & !dst;
+            board.zb2 =
+                board.zb2 | (((board.kb2 | board.zb2 | board.hb2) & E_HAND_MASK) + (1 << 18));
+        } else if board.nb1 & dst != 0 {
+            // ニワトリの盤面の駒を消し、取った駒を手持ちに加える（ヒヨコとして）
+            board.nb1 = board.nb1 & !dst;
+            board.hb2 =
+                board.hb2 | (((board.kb2 | board.zb2 | board.hb2) & E_HAND_MASK) + (1 << 18));
         }
     }
     board
 }
 
+#[inline(always)]
 pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) -> Vec<(i32, i32)> {
     let mut next_move_list: Vec<(i32, i32)> = vec![];
 
     if is_player1 {
         // 1pの手の探索
-        let player_board = board.white_b;
+        let player_board: i32 = board.lb1 | board.hb1 | board.kb1 | board.zb1 | board.nb1;
 
         // 1pひよこの手探索
-        let pb_board = player_board & board.pb;
-        let target_board = pb_board & -pb_board;
-        if target_board != 0 {
+        // board.hb1の1となる下位ビットを取得
+        let mut target_bit: i32 = board.hb1 & -board.hb1;
+        if target_bit != 0 {
             // 1つ目のコマの探索
-            match target_board {
+            match target_bit {
                 // A1_INDEX => _,
                 A2_INDEX => {
                     // 移動先に自分のコマがなければ、移動先に追加
@@ -563,10 +564,11 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                 }
                 _ => (),
             }
-            let target_board = pb_board - target_board;
-            if target_board != 0 {
+            // board.hb1の1となる上位ビットを取得
+            target_bit ^= board.hb1;
+            if target_bit != 0 {
                 // 2つ目のコマの探索
-                match target_board {
+                match target_bit {
                     // A1_INDEX => _,
                     A2_INDEX => {
                         if player_board & A1_INDEX == 0 {
@@ -621,11 +623,10 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
 
         // 1pゾウの手探索
-        let bb_board = player_board & board.bb;
-        let target_board = bb_board & -bb_board;
-        if target_board != 0 {
+        let mut target_bit: i32 = board.zb1 & -board.zb1;
+        if target_bit != 0 {
             // 1つ目のコマの探索
-            match target_board {
+            match target_bit {
                 A1_INDEX => {
                     if player_board & B2_INDEX == 0 {
                         next_move_list.push((A1_INDEX, B2_INDEX))
@@ -724,10 +725,10 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                 }
                 _ => (),
             }
-            let target_board = bb_board - target_board;
-            if target_board != 0 {
+            target_bit ^= board.zb1;
+            if target_bit != 0 {
                 // 2つ目のコマの探索
-                match target_board {
+                match target_bit {
                     A1_INDEX => {
                         if player_board & B2_INDEX == 0 {
                             next_move_list.push((A1_INDEX, B2_INDEX))
@@ -830,11 +831,10 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
 
         // 1pキリンの手探索
-        let rb_board = player_board & board.rb;
-        let target_board = rb_board & -rb_board;
-        if target_board != 0 {
+        let mut target_bit: i32 = board.kb1 & -board.kb1;
+        if target_bit != 0 {
             // 1つ目のコマの探索
-            match target_board {
+            match target_bit {
                 A1_INDEX => {
                     if player_board & A2_INDEX == 0 {
                         next_move_list.push((A1_INDEX, A2_INDEX));
@@ -963,10 +963,10 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                 }
                 _ => (),
             }
-            let target_board = rb_board - target_board;
-            if target_board != 0 {
+            target_bit ^= board.kb1;
+            if target_bit != 0 {
                 // 2つ目のコマの探索
-                match target_board {
+                match target_bit {
                     A1_INDEX => {
                         if player_board & A2_INDEX == 0 {
                             next_move_list.push((A1_INDEX, A2_INDEX));
@@ -1099,218 +1099,214 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
 
         // 1pライオンの手探索
-        let target_board = player_board & board.kb;
-        if target_board != 0 {
-            // 1つ目のコマの探索
-            match target_board {
-                A1_INDEX => {
-                    if player_board & B1_INDEX == 0 {
-                        next_move_list.push((A1_INDEX, B1_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((A1_INDEX, B2_INDEX));
-                    }
-                    if player_board & A2_INDEX == 0 {
-                        next_move_list.push((A1_INDEX, A2_INDEX));
-                    }
+        // 1つ目のコマの探索
+        match target_bit {
+            A1_INDEX => {
+                if player_board & B1_INDEX == 0 {
+                    next_move_list.push((A1_INDEX, B1_INDEX));
                 }
-                A2_INDEX => {
-                    if player_board & A1_INDEX == 0 {
-                        next_move_list.push((A2_INDEX, A1_INDEX));
-                    }
-                    if player_board & B1_INDEX == 0 {
-                        next_move_list.push((A2_INDEX, B1_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((A2_INDEX, B2_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((A2_INDEX, B3_INDEX));
-                    }
-                    if player_board & A3_INDEX == 0 {
-                        next_move_list.push((A2_INDEX, A3_INDEX));
-                    }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((A1_INDEX, B2_INDEX));
                 }
-                A3_INDEX => {
-                    if player_board & A2_INDEX == 0 {
-                        next_move_list.push((A3_INDEX, A2_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((A3_INDEX, B2_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((A3_INDEX, B3_INDEX));
-                    }
-                    if player_board & B4_INDEX == 0 {
-                        next_move_list.push((A3_INDEX, B4_INDEX));
-                    }
-                    if player_board & A4_INDEX == 0 {
-                        next_move_list.push((A3_INDEX, A4_INDEX));
-                    }
+                if player_board & A2_INDEX == 0 {
+                    next_move_list.push((A1_INDEX, A2_INDEX));
                 }
-                A4_INDEX => {
-                    if player_board & A3_INDEX == 0 {
-                        next_move_list.push((A4_INDEX, A3_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((A4_INDEX, B3_INDEX));
-                    }
-                    if player_board & B4_INDEX == 0 {
-                        next_move_list.push((A4_INDEX, B4_INDEX));
-                    }
-                }
-                B1_INDEX => {
-                    if player_board & C1_INDEX == 0 {
-                        next_move_list.push((B1_INDEX, C1_INDEX));
-                    }
-                    if player_board & A1_INDEX == 0 {
-                        next_move_list.push((B1_INDEX, A1_INDEX));
-                    }
-                    if player_board & C2_INDEX == 0 {
-                        next_move_list.push((B1_INDEX, C2_INDEX));
-                    }
-                    if player_board & A2_INDEX == 0 {
-                        next_move_list.push((B1_INDEX, A2_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((B1_INDEX, B2_INDEX));
-                    }
-                }
-                B2_INDEX => {
-                    if player_board & B1_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, B1_INDEX));
-                    }
-                    if player_board & C1_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, C1_INDEX));
-                    }
-                    if player_board & A1_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, A1_INDEX));
-                    }
-                    if player_board & C2_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, C2_INDEX));
-                    }
-                    if player_board & A2_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, A2_INDEX));
-                    }
-                    if player_board & C3_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, C3_INDEX));
-                    }
-                    if player_board & A3_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, A3_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, B3_INDEX));
-                    }
-                }
-                B3_INDEX => {
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, B2_INDEX));
-                    }
-                    if player_board & C2_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, C2_INDEX));
-                    }
-                    if player_board & A2_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, A2_INDEX));
-                    }
-                    if player_board & C3_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, C3_INDEX));
-                    }
-                    if player_board & A3_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, A3_INDEX));
-                    }
-                    if player_board & C4_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, C4_INDEX));
-                    }
-                    if player_board & A4_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, A4_INDEX));
-                    }
-                    if player_board & B4_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, B4_INDEX));
-                    }
-                }
-                B4_INDEX => {
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((B4_INDEX, B3_INDEX));
-                    }
-                    if player_board & C3_INDEX == 0 {
-                        next_move_list.push((B4_INDEX, C3_INDEX));
-                    }
-                    if player_board & A3_INDEX == 0 {
-                        next_move_list.push((B4_INDEX, A3_INDEX));
-                    }
-                    if player_board & C4_INDEX == 0 {
-                        next_move_list.push((B4_INDEX, C4_INDEX));
-                    }
-                    if player_board & A4_INDEX == 0 {
-                        next_move_list.push((B4_INDEX, A4_INDEX));
-                    }
-                }
-                C1_INDEX => {
-                    if player_board & B1_INDEX == 0 {
-                        next_move_list.push((C1_INDEX, B1_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((C1_INDEX, B2_INDEX));
-                    }
-                    if player_board & C2_INDEX == 0 {
-                        next_move_list.push((C1_INDEX, C2_INDEX));
-                    }
-                }
-                C2_INDEX => {
-                    if player_board & C1_INDEX == 0 {
-                        next_move_list.push((C2_INDEX, C1_INDEX));
-                    }
-                    if player_board & B1_INDEX == 0 {
-                        next_move_list.push((C2_INDEX, B1_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((C2_INDEX, B2_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((C2_INDEX, B3_INDEX));
-                    }
-                    if player_board & C3_INDEX == 0 {
-                        next_move_list.push((C2_INDEX, C3_INDEX));
-                    }
-                }
-                C3_INDEX => {
-                    if player_board & C2_INDEX == 0 {
-                        next_move_list.push((C3_INDEX, C2_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((C3_INDEX, B2_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((C3_INDEX, B3_INDEX));
-                    }
-                    if player_board & B4_INDEX == 0 {
-                        next_move_list.push((C3_INDEX, B4_INDEX));
-                    }
-                    if player_board & C4_INDEX == 0 {
-                        next_move_list.push((C3_INDEX, C4_INDEX));
-                    }
-                }
-                C4_INDEX => {
-                    if player_board & C3_INDEX == 0 {
-                        next_move_list.push((C4_INDEX, C3_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((C4_INDEX, B3_INDEX));
-                    }
-                    if player_board & B4_INDEX == 0 {
-                        next_move_list.push((C4_INDEX, B4_INDEX));
-                    }
-                }
-                _ => (),
             }
+            A2_INDEX => {
+                if player_board & A1_INDEX == 0 {
+                    next_move_list.push((A2_INDEX, A1_INDEX));
+                }
+                if player_board & B1_INDEX == 0 {
+                    next_move_list.push((A2_INDEX, B1_INDEX));
+                }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((A2_INDEX, B2_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((A2_INDEX, B3_INDEX));
+                }
+                if player_board & A3_INDEX == 0 {
+                    next_move_list.push((A2_INDEX, A3_INDEX));
+                }
+            }
+            A3_INDEX => {
+                if player_board & A2_INDEX == 0 {
+                    next_move_list.push((A3_INDEX, A2_INDEX));
+                }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((A3_INDEX, B2_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((A3_INDEX, B3_INDEX));
+                }
+                if player_board & B4_INDEX == 0 {
+                    next_move_list.push((A3_INDEX, B4_INDEX));
+                }
+                if player_board & A4_INDEX == 0 {
+                    next_move_list.push((A3_INDEX, A4_INDEX));
+                }
+            }
+            A4_INDEX => {
+                if player_board & A3_INDEX == 0 {
+                    next_move_list.push((A4_INDEX, A3_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((A4_INDEX, B3_INDEX));
+                }
+                if player_board & B4_INDEX == 0 {
+                    next_move_list.push((A4_INDEX, B4_INDEX));
+                }
+            }
+            B1_INDEX => {
+                if player_board & C1_INDEX == 0 {
+                    next_move_list.push((B1_INDEX, C1_INDEX));
+                }
+                if player_board & A1_INDEX == 0 {
+                    next_move_list.push((B1_INDEX, A1_INDEX));
+                }
+                if player_board & C2_INDEX == 0 {
+                    next_move_list.push((B1_INDEX, C2_INDEX));
+                }
+                if player_board & A2_INDEX == 0 {
+                    next_move_list.push((B1_INDEX, A2_INDEX));
+                }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((B1_INDEX, B2_INDEX));
+                }
+            }
+            B2_INDEX => {
+                if player_board & B1_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, B1_INDEX));
+                }
+                if player_board & C1_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, C1_INDEX));
+                }
+                if player_board & A1_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, A1_INDEX));
+                }
+                if player_board & C2_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, C2_INDEX));
+                }
+                if player_board & A2_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, A2_INDEX));
+                }
+                if player_board & C3_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, C3_INDEX));
+                }
+                if player_board & A3_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, A3_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, B3_INDEX));
+                }
+            }
+            B3_INDEX => {
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, B2_INDEX));
+                }
+                if player_board & C2_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, C2_INDEX));
+                }
+                if player_board & A2_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, A2_INDEX));
+                }
+                if player_board & C3_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, C3_INDEX));
+                }
+                if player_board & A3_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, A3_INDEX));
+                }
+                if player_board & C4_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, C4_INDEX));
+                }
+                if player_board & A4_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, A4_INDEX));
+                }
+                if player_board & B4_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, B4_INDEX));
+                }
+            }
+            B4_INDEX => {
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((B4_INDEX, B3_INDEX));
+                }
+                if player_board & C3_INDEX == 0 {
+                    next_move_list.push((B4_INDEX, C3_INDEX));
+                }
+                if player_board & A3_INDEX == 0 {
+                    next_move_list.push((B4_INDEX, A3_INDEX));
+                }
+                if player_board & C4_INDEX == 0 {
+                    next_move_list.push((B4_INDEX, C4_INDEX));
+                }
+                if player_board & A4_INDEX == 0 {
+                    next_move_list.push((B4_INDEX, A4_INDEX));
+                }
+            }
+            C1_INDEX => {
+                if player_board & B1_INDEX == 0 {
+                    next_move_list.push((C1_INDEX, B1_INDEX));
+                }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((C1_INDEX, B2_INDEX));
+                }
+                if player_board & C2_INDEX == 0 {
+                    next_move_list.push((C1_INDEX, C2_INDEX));
+                }
+            }
+            C2_INDEX => {
+                if player_board & C1_INDEX == 0 {
+                    next_move_list.push((C2_INDEX, C1_INDEX));
+                }
+                if player_board & B1_INDEX == 0 {
+                    next_move_list.push((C2_INDEX, B1_INDEX));
+                }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((C2_INDEX, B2_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((C2_INDEX, B3_INDEX));
+                }
+                if player_board & C3_INDEX == 0 {
+                    next_move_list.push((C2_INDEX, C3_INDEX));
+                }
+            }
+            C3_INDEX => {
+                if player_board & C2_INDEX == 0 {
+                    next_move_list.push((C3_INDEX, C2_INDEX));
+                }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((C3_INDEX, B2_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((C3_INDEX, B3_INDEX));
+                }
+                if player_board & B4_INDEX == 0 {
+                    next_move_list.push((C3_INDEX, B4_INDEX));
+                }
+                if player_board & C4_INDEX == 0 {
+                    next_move_list.push((C3_INDEX, C4_INDEX));
+                }
+            }
+            C4_INDEX => {
+                if player_board & C3_INDEX == 0 {
+                    next_move_list.push((C4_INDEX, C3_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((C4_INDEX, B3_INDEX));
+                }
+                if player_board & B4_INDEX == 0 {
+                    next_move_list.push((C4_INDEX, B4_INDEX));
+                }
+            }
+            _ => (),
         }
 
         // 1pニワトリの手探索
-        let ppb_board = player_board & board.ppb;
-        let target_board = ppb_board & -ppb_board;
-        if target_board != 0 {
+        let mut target_bit = board.nb1 & -board.nb1;
+        if target_bit != 0 {
             // 1つ目のコマの探索
-            match target_board {
+            match target_bit {
                 A1_INDEX => {
                     if player_board & A2_INDEX == 0 {
                         next_move_list.push((A1_INDEX, A2_INDEX));
@@ -1475,10 +1471,10 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                 }
                 _ => (),
             }
-            let target_board = ppb_board - target_board;
-            if target_board != 0 {
+            target_bit ^= board.nb1;
+            if target_bit != 0 {
                 // 2つ目のコマの探索
-                match target_board {
+                match target_bit {
                     A1_INDEX => {
                         if player_board & A2_INDEX == 0 {
                             next_move_list.push((A1_INDEX, A2_INDEX));
@@ -1647,138 +1643,138 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
 
         // 持ち駒を打つ場合
-        let target_board = !(board.black_b | board.white_b);
+        let empty_bit: i32 =
+            !(player_board | board.lb2 | board.hb2 | board.kb2 | board.zb2 | board.nb2);
 
         // 1pヒヨコ
-        if board.pb & D_HAND_MASK != 0 {
-            let hand_index = (board.pb & D_HAND_MASK) & -(board.pb & D_HAND_MASK);
-            if target_board & A1_INDEX != 0 {
+        if board.hb1 & D_HAND_MASK != 0 {
+            let hand_index: i32 = (board.hb1 & -board.hb1) & D_HAND_MASK;
+            if empty_bit & A1_INDEX != 0 {
                 next_move_list.push((hand_index, A1_INDEX));
             }
-            if target_board & A2_INDEX != 0 {
+            if empty_bit & A2_INDEX != 0 {
                 next_move_list.push((hand_index, A2_INDEX));
             }
-            if target_board & A3_INDEX != 0 {
+            if empty_bit & A3_INDEX != 0 {
                 next_move_list.push((hand_index, A3_INDEX));
             }
-            if target_board & A4_INDEX != 0 {
+            if empty_bit & A4_INDEX != 0 {
                 next_move_list.push((hand_index, A4_INDEX));
             }
-            if target_board & B1_INDEX != 0 {
+            if empty_bit & B1_INDEX != 0 {
                 next_move_list.push((hand_index, B1_INDEX));
             }
-            if target_board & B2_INDEX != 0 {
+            if empty_bit & B2_INDEX != 0 {
                 next_move_list.push((hand_index, B2_INDEX));
             }
-            if target_board & B3_INDEX != 0 {
+            if empty_bit & B3_INDEX != 0 {
                 next_move_list.push((hand_index, B3_INDEX));
             }
-            if target_board & B4_INDEX != 0 {
+            if empty_bit & B4_INDEX != 0 {
                 next_move_list.push((hand_index, B4_INDEX));
             }
-            if target_board & C1_INDEX != 0 {
+            if empty_bit & C1_INDEX != 0 {
                 next_move_list.push((hand_index, C1_INDEX));
             }
-            if target_board & C2_INDEX != 0 {
+            if empty_bit & C2_INDEX != 0 {
                 next_move_list.push((hand_index, C2_INDEX));
             }
-            if target_board & C3_INDEX != 0 {
+            if empty_bit & C3_INDEX != 0 {
                 next_move_list.push((hand_index, C3_INDEX));
             }
-            if target_board & C4_INDEX != 0 {
+            if empty_bit & C4_INDEX != 0 {
                 next_move_list.push((hand_index, C4_INDEX));
             }
         }
         // 1pゾウ
-        if board.bb & D_HAND_MASK != 0 {
-            let hand_index = (board.bb & D_HAND_MASK) & -(board.bb & D_HAND_MASK);
-            if target_board & A1_INDEX != 0 {
+        if board.zb1 & D_HAND_MASK != 0 {
+            let hand_index: i32 = (board.zb1 & -board.zb1) & D_HAND_MASK;
+            if empty_bit & A1_INDEX != 0 {
                 next_move_list.push((hand_index, A1_INDEX));
             }
-            if target_board & A2_INDEX != 0 {
+            if empty_bit & A2_INDEX != 0 {
                 next_move_list.push((hand_index, A2_INDEX));
             }
-            if target_board & A3_INDEX != 0 {
+            if empty_bit & A3_INDEX != 0 {
                 next_move_list.push((hand_index, A3_INDEX));
             }
-            if target_board & A4_INDEX != 0 {
+            if empty_bit & A4_INDEX != 0 {
                 next_move_list.push((hand_index, A4_INDEX));
             }
-            if target_board & B1_INDEX != 0 {
+            if empty_bit & B1_INDEX != 0 {
                 next_move_list.push((hand_index, B1_INDEX));
             }
-            if target_board & B2_INDEX != 0 {
+            if empty_bit & B2_INDEX != 0 {
                 next_move_list.push((hand_index, B2_INDEX));
             }
-            if target_board & B3_INDEX != 0 {
+            if empty_bit & B3_INDEX != 0 {
                 next_move_list.push((hand_index, B3_INDEX));
             }
-            if target_board & B4_INDEX != 0 {
+            if empty_bit & B4_INDEX != 0 {
                 next_move_list.push((hand_index, B4_INDEX));
             }
-            if target_board & C1_INDEX != 0 {
+            if empty_bit & C1_INDEX != 0 {
                 next_move_list.push((hand_index, C1_INDEX));
             }
-            if target_board & C2_INDEX != 0 {
+            if empty_bit & C2_INDEX != 0 {
                 next_move_list.push((hand_index, C2_INDEX));
             }
-            if target_board & C3_INDEX != 0 {
+            if empty_bit & C3_INDEX != 0 {
                 next_move_list.push((hand_index, C3_INDEX));
             }
-            if target_board & C4_INDEX != 0 {
+            if empty_bit & C4_INDEX != 0 {
                 next_move_list.push((hand_index, C4_INDEX));
             }
         }
         // 1pキリン
-        if board.rb & D_HAND_MASK != 0 {
-            let hand_index = (board.rb & D_HAND_MASK) & -(board.rb & D_HAND_MASK);
-            if target_board & A1_INDEX != 0 {
+        if board.kb1 & D_HAND_MASK != 0 {
+            let hand_index: i32 = (board.kb1 & -board.kb1) & D_HAND_MASK;
+            if empty_bit & A1_INDEX != 0 {
                 next_move_list.push((hand_index, A1_INDEX));
             }
-            if target_board & A2_INDEX != 0 {
+            if empty_bit & A2_INDEX != 0 {
                 next_move_list.push((hand_index, A2_INDEX));
             }
-            if target_board & A3_INDEX != 0 {
+            if empty_bit & A3_INDEX != 0 {
                 next_move_list.push((hand_index, A3_INDEX));
             }
-            if target_board & A4_INDEX != 0 {
+            if empty_bit & A4_INDEX != 0 {
                 next_move_list.push((hand_index, A4_INDEX));
             }
-            if target_board & B1_INDEX != 0 {
+            if empty_bit & B1_INDEX != 0 {
                 next_move_list.push((hand_index, B1_INDEX));
             }
-            if target_board & B2_INDEX != 0 {
+            if empty_bit & B2_INDEX != 0 {
                 next_move_list.push((hand_index, B2_INDEX));
             }
-            if target_board & B3_INDEX != 0 {
+            if empty_bit & B3_INDEX != 0 {
                 next_move_list.push((hand_index, B3_INDEX));
             }
-            if target_board & B4_INDEX != 0 {
+            if empty_bit & B4_INDEX != 0 {
                 next_move_list.push((hand_index, B4_INDEX));
             }
-            if target_board & C1_INDEX != 0 {
+            if empty_bit & C1_INDEX != 0 {
                 next_move_list.push((hand_index, C1_INDEX));
             }
-            if target_board & C2_INDEX != 0 {
+            if empty_bit & C2_INDEX != 0 {
                 next_move_list.push((hand_index, C2_INDEX));
             }
-            if target_board & C3_INDEX != 0 {
+            if empty_bit & C3_INDEX != 0 {
                 next_move_list.push((hand_index, C3_INDEX));
             }
-            if target_board & C4_INDEX != 0 {
+            if empty_bit & C4_INDEX != 0 {
                 next_move_list.push((hand_index, C4_INDEX));
             }
         }
     } else {
         // 2pの手の探索
-        let player_board = board.black_b;
+        let player_board: i32 = board.lb2 | board.hb2 | board.kb2 | board.zb2 | board.nb2;
 
         // 2pひよこの手探索
-        let pb_board = player_board & board.pb;
-        let target_board = pb_board & -pb_board;
-        if target_board != 0 {
+        let mut target_bit: i32 = board.hb2 & -board.hb2;
+        if target_bit != 0 {
             // 1つ目のコマの探索
-            match target_board {
+            match target_bit {
                 A1_INDEX => {
                     // 移動先に自分のコマがなければ、移動先に追加
                     if player_board & A2_INDEX == 0 {
@@ -1830,10 +1826,10 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                 //C4_INDEX => _,
                 _ => (),
             }
-            let target_board = pb_board - target_board;
-            if target_board != 0 {
+            target_bit ^= board.hb2;
+            if target_bit != 0 {
                 // 2つ目のコマの探索
-                match target_board {
+                match target_bit {
                     A1_INDEX => {
                         if player_board & A2_INDEX == 0 {
                             next_move_list.push((A1_INDEX, A2_INDEX))
@@ -1888,11 +1884,10 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
 
         // 2pゾウの手探索
-        let bb_board = player_board & board.bb;
-        let target_board = bb_board & -bb_board;
-        if target_board != 0 {
+        let mut target_bit: i32 = board.zb2 & -board.zb2;
+        if target_bit != 0 {
             // 1つ目のコマの探索
-            match target_board {
+            match target_bit {
                 A1_INDEX => {
                     if player_board & B2_INDEX == 0 {
                         next_move_list.push((A1_INDEX, B2_INDEX))
@@ -1991,10 +1986,10 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                 }
                 _ => (),
             }
-            let target_board = bb_board - target_board;
-            if target_board != 0 {
+            target_bit ^= board.zb2;
+            if target_bit != 0 {
                 // 2つ目のコマの探索
-                match target_board {
+                match target_bit {
                     A1_INDEX => {
                         if player_board & B2_INDEX == 0 {
                             next_move_list.push((A1_INDEX, B2_INDEX))
@@ -2097,11 +2092,10 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
 
         // 2pキリンの手探索
-        let rb_board = player_board & board.rb;
-        let target_board = rb_board & -rb_board;
-        if target_board != 0 {
+        let mut target_bit: i32 = board.kb2 & -board.kb2;
+        if target_bit != 0 {
             // 1つ目のコマの探索
-            match target_board {
+            match target_bit {
                 A1_INDEX => {
                     if player_board & A2_INDEX == 0 {
                         next_move_list.push((A1_INDEX, A2_INDEX));
@@ -2230,10 +2224,10 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                 }
                 _ => (),
             }
-            let target_board = rb_board - target_board;
-            if target_board != 0 {
+            target_bit ^= board.kb2;
+            if target_bit != 0 {
                 // 2つ目のコマの探索
-                match target_board {
+                match target_bit {
                     A1_INDEX => {
                         if player_board & A2_INDEX == 0 {
                             next_move_list.push((A1_INDEX, A2_INDEX));
@@ -2366,218 +2360,214 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
 
         // 2pライオンの手探索
-        let target_board = player_board & board.kb;
-        if target_board != 0 {
-            // 1つ目のコマの探索
-            match target_board {
-                A1_INDEX => {
-                    if player_board & B1_INDEX == 0 {
-                        next_move_list.push((A1_INDEX, B1_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((A1_INDEX, B2_INDEX));
-                    }
-                    if player_board & A2_INDEX == 0 {
-                        next_move_list.push((A1_INDEX, A2_INDEX));
-                    }
+        // 1つ目のコマの探索
+        match target_bit {
+            A1_INDEX => {
+                if player_board & B1_INDEX == 0 {
+                    next_move_list.push((A1_INDEX, B1_INDEX));
                 }
-                A2_INDEX => {
-                    if player_board & A1_INDEX == 0 {
-                        next_move_list.push((A2_INDEX, A1_INDEX));
-                    }
-                    if player_board & B1_INDEX == 0 {
-                        next_move_list.push((A2_INDEX, B1_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((A2_INDEX, B2_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((A2_INDEX, B3_INDEX));
-                    }
-                    if player_board & A3_INDEX == 0 {
-                        next_move_list.push((A2_INDEX, A3_INDEX));
-                    }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((A1_INDEX, B2_INDEX));
                 }
-                A3_INDEX => {
-                    if player_board & A2_INDEX == 0 {
-                        next_move_list.push((A3_INDEX, A2_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((A3_INDEX, B2_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((A3_INDEX, B3_INDEX));
-                    }
-                    if player_board & B4_INDEX == 0 {
-                        next_move_list.push((A3_INDEX, B4_INDEX));
-                    }
-                    if player_board & A4_INDEX == 0 {
-                        next_move_list.push((A3_INDEX, A4_INDEX));
-                    }
+                if player_board & A2_INDEX == 0 {
+                    next_move_list.push((A1_INDEX, A2_INDEX));
                 }
-                A4_INDEX => {
-                    if player_board & A3_INDEX == 0 {
-                        next_move_list.push((A4_INDEX, A3_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((A4_INDEX, B3_INDEX));
-                    }
-                    if player_board & B4_INDEX == 0 {
-                        next_move_list.push((A4_INDEX, B4_INDEX));
-                    }
-                }
-                B1_INDEX => {
-                    if player_board & C1_INDEX == 0 {
-                        next_move_list.push((B1_INDEX, C1_INDEX));
-                    }
-                    if player_board & A1_INDEX == 0 {
-                        next_move_list.push((B1_INDEX, A1_INDEX));
-                    }
-                    if player_board & C2_INDEX == 0 {
-                        next_move_list.push((B1_INDEX, C2_INDEX));
-                    }
-                    if player_board & A2_INDEX == 0 {
-                        next_move_list.push((B1_INDEX, A2_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((B1_INDEX, B2_INDEX));
-                    }
-                }
-                B2_INDEX => {
-                    if player_board & B1_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, B1_INDEX));
-                    }
-                    if player_board & C1_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, C1_INDEX));
-                    }
-                    if player_board & A1_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, A1_INDEX));
-                    }
-                    if player_board & C2_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, C2_INDEX));
-                    }
-                    if player_board & A2_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, A2_INDEX));
-                    }
-                    if player_board & C3_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, C3_INDEX));
-                    }
-                    if player_board & A3_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, A3_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((B2_INDEX, B3_INDEX));
-                    }
-                }
-                B3_INDEX => {
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, B2_INDEX));
-                    }
-                    if player_board & C2_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, C2_INDEX));
-                    }
-                    if player_board & A2_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, A2_INDEX));
-                    }
-                    if player_board & C3_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, C3_INDEX));
-                    }
-                    if player_board & A3_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, A3_INDEX));
-                    }
-                    if player_board & C4_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, C4_INDEX));
-                    }
-                    if player_board & A4_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, A4_INDEX));
-                    }
-                    if player_board & B4_INDEX == 0 {
-                        next_move_list.push((B3_INDEX, B4_INDEX));
-                    }
-                }
-                B4_INDEX => {
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((B4_INDEX, B3_INDEX));
-                    }
-                    if player_board & C3_INDEX == 0 {
-                        next_move_list.push((B4_INDEX, C3_INDEX));
-                    }
-                    if player_board & A3_INDEX == 0 {
-                        next_move_list.push((B4_INDEX, A3_INDEX));
-                    }
-                    if player_board & C4_INDEX == 0 {
-                        next_move_list.push((B4_INDEX, C4_INDEX));
-                    }
-                    if player_board & A4_INDEX == 0 {
-                        next_move_list.push((B4_INDEX, A4_INDEX));
-                    }
-                }
-                C1_INDEX => {
-                    if player_board & B1_INDEX == 0 {
-                        next_move_list.push((C1_INDEX, B1_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((C1_INDEX, B2_INDEX));
-                    }
-                    if player_board & C2_INDEX == 0 {
-                        next_move_list.push((C1_INDEX, C2_INDEX));
-                    }
-                }
-                C2_INDEX => {
-                    if player_board & C1_INDEX == 0 {
-                        next_move_list.push((C2_INDEX, C1_INDEX));
-                    }
-                    if player_board & B1_INDEX == 0 {
-                        next_move_list.push((C2_INDEX, B1_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((C2_INDEX, B2_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((C2_INDEX, B3_INDEX));
-                    }
-                    if player_board & C3_INDEX == 0 {
-                        next_move_list.push((C2_INDEX, C3_INDEX));
-                    }
-                }
-                C3_INDEX => {
-                    if player_board & C2_INDEX == 0 {
-                        next_move_list.push((C3_INDEX, C2_INDEX));
-                    }
-                    if player_board & B2_INDEX == 0 {
-                        next_move_list.push((C3_INDEX, B2_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((C3_INDEX, B3_INDEX));
-                    }
-                    if player_board & B4_INDEX == 0 {
-                        next_move_list.push((C3_INDEX, B4_INDEX));
-                    }
-                    if player_board & C4_INDEX == 0 {
-                        next_move_list.push((C3_INDEX, C4_INDEX));
-                    }
-                }
-                C4_INDEX => {
-                    if player_board & C3_INDEX == 0 {
-                        next_move_list.push((C4_INDEX, C3_INDEX));
-                    }
-                    if player_board & B3_INDEX == 0 {
-                        next_move_list.push((C4_INDEX, B3_INDEX));
-                    }
-                    if player_board & B4_INDEX == 0 {
-                        next_move_list.push((C4_INDEX, B4_INDEX));
-                    }
-                }
-                _ => (),
             }
+            A2_INDEX => {
+                if player_board & A1_INDEX == 0 {
+                    next_move_list.push((A2_INDEX, A1_INDEX));
+                }
+                if player_board & B1_INDEX == 0 {
+                    next_move_list.push((A2_INDEX, B1_INDEX));
+                }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((A2_INDEX, B2_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((A2_INDEX, B3_INDEX));
+                }
+                if player_board & A3_INDEX == 0 {
+                    next_move_list.push((A2_INDEX, A3_INDEX));
+                }
+            }
+            A3_INDEX => {
+                if player_board & A2_INDEX == 0 {
+                    next_move_list.push((A3_INDEX, A2_INDEX));
+                }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((A3_INDEX, B2_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((A3_INDEX, B3_INDEX));
+                }
+                if player_board & B4_INDEX == 0 {
+                    next_move_list.push((A3_INDEX, B4_INDEX));
+                }
+                if player_board & A4_INDEX == 0 {
+                    next_move_list.push((A3_INDEX, A4_INDEX));
+                }
+            }
+            A4_INDEX => {
+                if player_board & A3_INDEX == 0 {
+                    next_move_list.push((A4_INDEX, A3_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((A4_INDEX, B3_INDEX));
+                }
+                if player_board & B4_INDEX == 0 {
+                    next_move_list.push((A4_INDEX, B4_INDEX));
+                }
+            }
+            B1_INDEX => {
+                if player_board & C1_INDEX == 0 {
+                    next_move_list.push((B1_INDEX, C1_INDEX));
+                }
+                if player_board & A1_INDEX == 0 {
+                    next_move_list.push((B1_INDEX, A1_INDEX));
+                }
+                if player_board & C2_INDEX == 0 {
+                    next_move_list.push((B1_INDEX, C2_INDEX));
+                }
+                if player_board & A2_INDEX == 0 {
+                    next_move_list.push((B1_INDEX, A2_INDEX));
+                }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((B1_INDEX, B2_INDEX));
+                }
+            }
+            B2_INDEX => {
+                if player_board & B1_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, B1_INDEX));
+                }
+                if player_board & C1_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, C1_INDEX));
+                }
+                if player_board & A1_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, A1_INDEX));
+                }
+                if player_board & C2_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, C2_INDEX));
+                }
+                if player_board & A2_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, A2_INDEX));
+                }
+                if player_board & C3_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, C3_INDEX));
+                }
+                if player_board & A3_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, A3_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((B2_INDEX, B3_INDEX));
+                }
+            }
+            B3_INDEX => {
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, B2_INDEX));
+                }
+                if player_board & C2_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, C2_INDEX));
+                }
+                if player_board & A2_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, A2_INDEX));
+                }
+                if player_board & C3_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, C3_INDEX));
+                }
+                if player_board & A3_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, A3_INDEX));
+                }
+                if player_board & C4_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, C4_INDEX));
+                }
+                if player_board & A4_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, A4_INDEX));
+                }
+                if player_board & B4_INDEX == 0 {
+                    next_move_list.push((B3_INDEX, B4_INDEX));
+                }
+            }
+            B4_INDEX => {
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((B4_INDEX, B3_INDEX));
+                }
+                if player_board & C3_INDEX == 0 {
+                    next_move_list.push((B4_INDEX, C3_INDEX));
+                }
+                if player_board & A3_INDEX == 0 {
+                    next_move_list.push((B4_INDEX, A3_INDEX));
+                }
+                if player_board & C4_INDEX == 0 {
+                    next_move_list.push((B4_INDEX, C4_INDEX));
+                }
+                if player_board & A4_INDEX == 0 {
+                    next_move_list.push((B4_INDEX, A4_INDEX));
+                }
+            }
+            C1_INDEX => {
+                if player_board & B1_INDEX == 0 {
+                    next_move_list.push((C1_INDEX, B1_INDEX));
+                }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((C1_INDEX, B2_INDEX));
+                }
+                if player_board & C2_INDEX == 0 {
+                    next_move_list.push((C1_INDEX, C2_INDEX));
+                }
+            }
+            C2_INDEX => {
+                if player_board & C1_INDEX == 0 {
+                    next_move_list.push((C2_INDEX, C1_INDEX));
+                }
+                if player_board & B1_INDEX == 0 {
+                    next_move_list.push((C2_INDEX, B1_INDEX));
+                }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((C2_INDEX, B2_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((C2_INDEX, B3_INDEX));
+                }
+                if player_board & C3_INDEX == 0 {
+                    next_move_list.push((C2_INDEX, C3_INDEX));
+                }
+            }
+            C3_INDEX => {
+                if player_board & C2_INDEX == 0 {
+                    next_move_list.push((C3_INDEX, C2_INDEX));
+                }
+                if player_board & B2_INDEX == 0 {
+                    next_move_list.push((C3_INDEX, B2_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((C3_INDEX, B3_INDEX));
+                }
+                if player_board & B4_INDEX == 0 {
+                    next_move_list.push((C3_INDEX, B4_INDEX));
+                }
+                if player_board & C4_INDEX == 0 {
+                    next_move_list.push((C3_INDEX, C4_INDEX));
+                }
+            }
+            C4_INDEX => {
+                if player_board & C3_INDEX == 0 {
+                    next_move_list.push((C4_INDEX, C3_INDEX));
+                }
+                if player_board & B3_INDEX == 0 {
+                    next_move_list.push((C4_INDEX, B3_INDEX));
+                }
+                if player_board & B4_INDEX == 0 {
+                    next_move_list.push((C4_INDEX, B4_INDEX));
+                }
+            }
+            _ => (),
         }
 
         // 2pニワトリの手探索
-        let ppb_board = player_board & board.ppb;
-        let target_board = ppb_board & -ppb_board;
-        if target_board != 0 {
+        let mut target_bit: i32 = board.nb2 & -board.nb2;
+        if target_bit != 0 {
             // 1つ目のコマの探索
-            match target_board {
+            match target_bit {
                 A1_INDEX => {
                     if player_board & A2_INDEX == 0 {
                         next_move_list.push((A1_INDEX, A2_INDEX));
@@ -2742,10 +2732,10 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
                 }
                 _ => (),
             }
-            let target_board = ppb_board - target_board;
-            if target_board != 0 {
+            target_bit ^= board.nb2;
+            if target_bit != 0 {
                 // 2つ目のコマの探索
-                match target_board {
+                match target_bit {
                     A1_INDEX => {
                         if player_board & A2_INDEX == 0 {
                             next_move_list.push((A1_INDEX, A2_INDEX));
@@ -2914,125 +2904,126 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
 
         // 持ち駒を打つ場合
-        let target_board = !(board.black_b | board.white_b);
+        let empty_bit: i32 =
+            !(player_board | board.lb1 | board.hb1 | board.kb1 | board.zb1 | board.nb1);
 
         // 2pヒヨコ
-        if board.pb & E_HAND_MASK != 0 {
-            let hand_index = (board.pb & E_HAND_MASK) & -(board.pb & E_HAND_MASK);
-            if target_board & A1_INDEX != 0 {
+        if board.hb2 & E_HAND_MASK != 0 {
+            let hand_index: i32 = (board.hb2 & -board.hb2) & E_HAND_MASK;
+            if empty_bit & A1_INDEX != 0 {
                 next_move_list.push((hand_index, A1_INDEX));
             }
-            if target_board & A2_INDEX != 0 {
+            if empty_bit & A2_INDEX != 0 {
                 next_move_list.push((hand_index, A2_INDEX));
             }
-            if target_board & A3_INDEX != 0 {
+            if empty_bit & A3_INDEX != 0 {
                 next_move_list.push((hand_index, A3_INDEX));
             }
-            if target_board & A4_INDEX != 0 {
+            if empty_bit & A4_INDEX != 0 {
                 next_move_list.push((hand_index, A4_INDEX));
             }
-            if target_board & B1_INDEX != 0 {
+            if empty_bit & B1_INDEX != 0 {
                 next_move_list.push((hand_index, B1_INDEX));
             }
-            if target_board & B2_INDEX != 0 {
+            if empty_bit & B2_INDEX != 0 {
                 next_move_list.push((hand_index, B2_INDEX));
             }
-            if target_board & B3_INDEX != 0 {
+            if empty_bit & B3_INDEX != 0 {
                 next_move_list.push((hand_index, B3_INDEX));
             }
-            if target_board & B4_INDEX != 0 {
+            if empty_bit & B4_INDEX != 0 {
                 next_move_list.push((hand_index, B4_INDEX));
             }
-            if target_board & C1_INDEX != 0 {
+            if empty_bit & C1_INDEX != 0 {
                 next_move_list.push((hand_index, C1_INDEX));
             }
-            if target_board & C2_INDEX != 0 {
+            if empty_bit & C2_INDEX != 0 {
                 next_move_list.push((hand_index, C2_INDEX));
             }
-            if target_board & C3_INDEX != 0 {
+            if empty_bit & C3_INDEX != 0 {
                 next_move_list.push((hand_index, C3_INDEX));
             }
-            if target_board & C4_INDEX != 0 {
+            if empty_bit & C4_INDEX != 0 {
                 next_move_list.push((hand_index, C4_INDEX));
             }
         }
         // 2pゾウ
-        if board.bb & E_HAND_MASK != 0 {
-            let hand_index = (board.bb & E_HAND_MASK) & -(board.bb & E_HAND_MASK);
-            if target_board & A1_INDEX != 0 {
+        if board.zb2 & E_HAND_MASK != 0 {
+            let hand_index: i32 = (board.zb2 & -board.zb2) & E_HAND_MASK;
+            if empty_bit & A1_INDEX != 0 {
                 next_move_list.push((hand_index, A1_INDEX));
             }
-            if target_board & A2_INDEX != 0 {
+            if empty_bit & A2_INDEX != 0 {
                 next_move_list.push((hand_index, A2_INDEX));
             }
-            if target_board & A3_INDEX != 0 {
+            if empty_bit & A3_INDEX != 0 {
                 next_move_list.push((hand_index, A3_INDEX));
             }
-            if target_board & A4_INDEX != 0 {
+            if empty_bit & A4_INDEX != 0 {
                 next_move_list.push((hand_index, A4_INDEX));
             }
-            if target_board & B1_INDEX != 0 {
+            if empty_bit & B1_INDEX != 0 {
                 next_move_list.push((hand_index, B1_INDEX));
             }
-            if target_board & B2_INDEX != 0 {
+            if empty_bit & B2_INDEX != 0 {
                 next_move_list.push((hand_index, B2_INDEX));
             }
-            if target_board & B3_INDEX != 0 {
+            if empty_bit & B3_INDEX != 0 {
                 next_move_list.push((hand_index, B3_INDEX));
             }
-            if target_board & B4_INDEX != 0 {
+            if empty_bit & B4_INDEX != 0 {
                 next_move_list.push((hand_index, B4_INDEX));
             }
-            if target_board & C1_INDEX != 0 {
+            if empty_bit & C1_INDEX != 0 {
                 next_move_list.push((hand_index, C1_INDEX));
             }
-            if target_board & C2_INDEX != 0 {
+            if empty_bit & C2_INDEX != 0 {
                 next_move_list.push((hand_index, C2_INDEX));
             }
-            if target_board & C3_INDEX != 0 {
+            if empty_bit & C3_INDEX != 0 {
                 next_move_list.push((hand_index, C3_INDEX));
             }
-            if target_board & C4_INDEX != 0 {
+            if empty_bit & C4_INDEX != 0 {
                 next_move_list.push((hand_index, C4_INDEX));
             }
         }
         // 2pキリン
-        if board.rb & E_HAND_MASK != 0 {
-            let hand_index = (board.rb & E_HAND_MASK) & -(board.rb & E_HAND_MASK);
-            if target_board & A1_INDEX != 0 {
+        if board.kb2 & E_HAND_MASK != 0 {
+            let hand_index: i32 = (board.kb2 & -board.kb2) & E_HAND_MASK;
+            if empty_bit & A1_INDEX != 0 {
                 next_move_list.push((hand_index, A1_INDEX));
             }
-            if target_board & A2_INDEX != 0 {
+            if empty_bit & A2_INDEX != 0 {
                 next_move_list.push((hand_index, A2_INDEX));
             }
-            if target_board & A3_INDEX != 0 {
+            if empty_bit & A3_INDEX != 0 {
                 next_move_list.push((hand_index, A3_INDEX));
             }
-            if target_board & A4_INDEX != 0 {
+            if empty_bit & A4_INDEX != 0 {
                 next_move_list.push((hand_index, A4_INDEX));
             }
-            if target_board & B1_INDEX != 0 {
+            if empty_bit & B1_INDEX != 0 {
                 next_move_list.push((hand_index, B1_INDEX));
             }
-            if target_board & B2_INDEX != 0 {
+            if empty_bit & B2_INDEX != 0 {
                 next_move_list.push((hand_index, B2_INDEX));
             }
-            if target_board & B3_INDEX != 0 {
+            if empty_bit & B3_INDEX != 0 {
                 next_move_list.push((hand_index, B3_INDEX));
             }
-            if target_board & B4_INDEX != 0 {
+            if empty_bit & B4_INDEX != 0 {
                 next_move_list.push((hand_index, B4_INDEX));
             }
-            if target_board & C1_INDEX != 0 {
+            if empty_bit & C1_INDEX != 0 {
                 next_move_list.push((hand_index, C1_INDEX));
             }
-            if target_board & C2_INDEX != 0 {
+            if empty_bit & C2_INDEX != 0 {
                 next_move_list.push((hand_index, C2_INDEX));
             }
-            if target_board & C3_INDEX != 0 {
+            if empty_bit & C3_INDEX != 0 {
                 next_move_list.push((hand_index, C3_INDEX));
             }
-            if target_board & C4_INDEX != 0 {
+            if empty_bit & C4_INDEX != 0 {
                 next_move_list.push((hand_index, C4_INDEX));
             }
         }
@@ -3040,6 +3031,7 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
     next_move_list
 }
 
+#[inline(always)]
 pub fn judge(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3047,28 +3039,25 @@ pub fn judge(
 ) -> i32 {
     // キャッチ判定
     // 1pがライオンをとった時
-    if board.kb & board.black_b == 0 {
+    if board.lb2 == 0 {
         return if is_player1 { WIN_POINT } else { LOSE_POINT };
     // 1pがライオンが取られた時
-    } else if board.kb & board.white_b == 0 {
+    } else if board.lb1 == 0 {
         return if is_player1 { LOSE_POINT } else { WIN_POINT };
     }
     // 1pトライ判定
-    if board.kb & board.white_b & TRY_MASK1 != 0
-        && bef_board.kb & bef_board.white_b & TRY_MASK1 != 0
-    {
+    if board.lb1 & D_TRY_MASK != 0 && bef_board.lb1 & D_TRY_MASK != 0 {
         return if is_player1 { WIN_POINT } else { LOSE_POINT };
     }
     // 2pトライ判定
-    if board.kb & board.black_b & TRY_MASK4 != 0
-        && bef_board.kb & bef_board.black_b & TRY_MASK4 != 0
-    {
+    if board.lb2 & E_TRY_MASK != 0 && bef_board.lb2 & E_TRY_MASK != 0 {
         return if is_player1 { LOSE_POINT } else { WIN_POINT };
     }
     // 勝敗がついていなければ0を返す
     0
 }
 
+#[inline(always)]
 pub fn eval_function(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3079,151 +3068,105 @@ pub fn eval_function(
     if point != 0 {
         return point;
     }
-
-    // 拡張用
-    /////////////////////////////////////////////
-    // let pb_board = board.white_b & board.pb;
-    // if pb_board != 0 {
-    //     // 最上位ビットのみ取り出す
-    //     let mut msb = pb_board & -pb_board;
-    //     // 最上位ビット以下のビットを立てる
-    //     let mut msb_count = msb + !-msb;
-    //     // 立っているビット数をカウント
-    //     msb_count = (msb_count & 0x55555555) + (msb_count >> 1 & 0x55555555);
-    //     msb_count = (msb_count & 0x33333333) + (msb_count >> 2 & 0x33333333);
-    //     msb_count = (msb_count & 0x0f0f0f0f) + (msb_count >> 4 & 0x0f0f0f0f);
-    //     msb_count = (msb_count & 0x00ff00ff) + (msb_count >> 8 & 0x00ff00ff);
-    //     msb_count = (msb_count & 0x0000ffff) + (msb_count >> 16 & 0x0000ffff);
-    //
-    //     point += EVAL_LIST[0][msb_count as usize];
-    //
-    //     // 2つ駒がある場合
-    //     msb = pb_board - msb;
-    //     if msb != 0 {
-    //         // 最上位ビット以下のビットを立てる
-    //         let mut msb_count = msb + !-msb;
-    //         // 立っているビット数をカウント
-    //         msb_count = (msb_count & 0x55555555) + (msb_count >> 1 & 0x55555555);
-    //         msb_count = (msb_count & 0x33333333) + (msb_count >> 2 & 0x33333333);
-    //         msb_count = (msb_count & 0x0f0f0f0f) + (msb_count >> 4 & 0x0f0f0f0f);
-    //         msb_count = (msb_count & 0x00ff00ff) + (msb_count >> 8 & 0x00ff00ff);
-    //         msb_count = (msb_count & 0x0000ffff) + (msb_count >> 16 & 0x0000ffff);
-    //
-    //         point += EVAL_LIST[0][msb_count as usize];
-    //     }
-    // }
-    /////////////////////////////////////////////
-
     //勝敗がついていなければ盤面の点数を返す
-    let white_board = board.white_b & BOARD_MASK;
-    let black_board = board.black_b & BOARD_MASK;
-    let white_hand = board.white_b & HAND_MASK;
-    let black_hand = board.black_b & HAND_MASK;
-
-    // ニワトリの個数で分岐
-    if board.ppb == 0 {
-        // ニワトリがいない場合
+    // ニワトリ2,ヒヨコ0の場合
+    if board.hb1 | board.hb2 == 0 {
         // ヒヨコの得点
-        point += if white_board & board.pb != 0 {
+        point += if board.hb1 & BOARD_MASK != 0 {
             PB_BOARD_POINT
         } else {
             -PB_BOARD_POINT
         };
-        point += if black_board & board.pb != 0 {
+        point += if board.hb2 & BOARD_MASK != 0 {
             -PB_BOARD_POINT
         } else {
             PB_BOARD_POINT
         };
-        point += if white_hand & board.pb != 0 {
+        point += if board.hb1 & HAND_MASK != 0 {
             PB_HAND_POINT
         } else {
             -PB_HAND_POINT
         };
-        point += if black_hand & board.pb != 0 {
+        point += if board.hb2 & HAND_MASK != 0 {
             -PB_HAND_POINT
         } else {
             PB_HAND_POINT
         };
     } else {
-        let ppb_board = board.ppb & -board.ppb;
-        if board.ppb - ppb_board == 0 {
-            // ニワトリが一つの場合
-            // ヒヨコの得点
-            // 盤面にヒヨコがいる場合
-            if board.pb & BOARD_MASK != 0 {
-                point += if white_board & board.pb != 0 {
-                    PB_BOARD_POINT
-                } else {
-                    -PB_BOARD_POINT
-                };
-            } else {
-                point += if white_hand & board.pb != 0 {
-                    PB_HAND_POINT
-                } else {
-                    -PB_HAND_POINT
-                };
-            }
+        // ニワトリ0,ヒヨコ2の場合
+        if board.nb1 | board.nb2 == 0 {
             // ニワトリの得点
-            point += if white_board & board.ppb != 0 {
-                PPB_BOARD_POINT
+            point += if board.nb1 != 0 {
+                PB_BOARD_POINT
             } else {
-                -PPB_BOARD_POINT
+                -PB_BOARD_POINT
+            };
+            point += if board.nb2 != 0 {
+                -PB_BOARD_POINT
+            } else {
+                PB_BOARD_POINT
             };
         } else {
-            // ニワトリが二つの場合
-            // ニワトリの得点
-            point += if white_board & board.ppb != 0 {
-                PPB_BOARD_POINT
+            // ニワトリ1,ヒヨコ1の場合
+            // ヒヨコの得点
+            point += if board.hb1 & BOARD_MASK != 0 {
+                PB_BOARD_POINT
             } else {
-                -PPB_BOARD_POINT
+                -PB_BOARD_POINT
             };
-            point += if black_board & board.ppb != 0 {
-                -PPB_BOARD_POINT
+            point += if board.hb1 & HAND_MASK != 0 {
+                PB_HAND_POINT
             } else {
-                PPB_BOARD_POINT
+                -PB_HAND_POINT
+            };
+            // ニワトリの得点
+            point += if board.nb1 != 0 {
+                PB_BOARD_POINT
+            } else {
+                -PB_BOARD_POINT
             };
         }
     }
 
     // ゾウの得点
-    point += if white_board & board.bb != 0 {
+    point += if board.zb1 & BOARD_MASK != 0 {
         BB_BOARD_POINT
     } else {
         -BB_BOARD_POINT
     };
-    point += if black_board & board.bb != 0 {
+    point += if board.zb2 & BOARD_MASK != 0 {
         -BB_BOARD_POINT
     } else {
         BB_BOARD_POINT
     };
-    point += if white_hand & board.bb != 0 {
+    point += if board.zb1 & HAND_MASK != 0 {
         BB_HAND_POINT
     } else {
         -BB_HAND_POINT
     };
-    point += if black_hand & board.bb != 0 {
+    point += if board.zb2 & HAND_MASK != 0 {
         -BB_HAND_POINT
     } else {
         BB_HAND_POINT
     };
 
     // キリンの得点
-    point += if white_board & board.rb != 0 {
+    point += if board.kb1 & BOARD_MASK != 0 {
         RB_BOARD_POINT
     } else {
         -RB_BOARD_POINT
     };
-    point += if black_board & board.rb != 0 {
+    point += if board.kb2 & BOARD_MASK != 0 {
         -RB_BOARD_POINT
     } else {
         RB_BOARD_POINT
     };
-    point += if white_hand & board.rb != 0 {
+    point += if board.kb1 & HAND_MASK != 0 {
         RB_HAND_POINT
     } else {
         -RB_HAND_POINT
     };
-    point += if black_hand & board.rb != 0 {
+    point += if board.kb2 & HAND_MASK != 0 {
         -RB_HAND_POINT
     } else {
         RB_HAND_POINT
@@ -3231,40 +3174,39 @@ pub fn eval_function(
     point
 }
 
+#[inline(always)]
 pub fn shallow_search(board: &bit_board::bit_board::BitBoard, dst: i32, is_player1: bool) -> i32 {
     // プレイヤー1の場合
     if is_player1 {
-        if board.black_b & dst != 0 {
-            if board.kb & dst != 0 {
-                return WIN_POINT;
-            } else if board.rb & dst != 0 {
-                return RB_BOARD_POINT;
-            } else if board.bb & dst != 0 {
-                return BB_BOARD_POINT;
-            } else if board.pb & dst != 0 {
-                return PB_BOARD_POINT;
-            } else if board.ppb & dst != 0 {
-                return PPB_BOARD_POINT;
-            }
+        if board.lb2 & dst != 0 {
+            return WIN_POINT;
+        } else if board.kb2 & dst != 0 {
+            return RB_BOARD_POINT;
+        } else if board.zb2 & dst != 0 {
+            return BB_BOARD_POINT;
+        } else if board.hb2 & dst != 0 {
+            return PB_BOARD_POINT;
+        } else if board.nb2 & dst != 0 {
+            return PPB_BOARD_POINT;
         }
     } else {
-        if board.white_b & dst != 0 {
-            if board.kb & dst != 0 {
-                return WIN_POINT;
-            } else if board.rb & dst != 0 {
-                return RB_BOARD_POINT;
-            } else if board.bb & dst != 0 {
-                return BB_BOARD_POINT;
-            } else if board.pb & dst != 0 {
-                return PB_BOARD_POINT;
-            } else if board.ppb & dst != 0 {
-                return PPB_BOARD_POINT;
-            }
+        // プレイヤー2の場合
+        if board.lb1 & dst != 0 {
+            return WIN_POINT;
+        } else if board.kb1 & dst != 0 {
+            return RB_BOARD_POINT;
+        } else if board.zb1 & dst != 0 {
+            return BB_BOARD_POINT;
+        } else if board.hb1 & dst != 0 {
+            return PB_BOARD_POINT;
+        } else if board.nb1 & dst != 0 {
+            return PPB_BOARD_POINT;
         }
     }
     0
 }
 
+#[inline(always)]
 pub fn nega_scout(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3273,7 +3215,7 @@ pub fn nega_scout(
     mut alpha: i32,
     beta: i32,
 ) -> Node {
-    let mut best_move = (0, 0);
+    let mut best_move: (i32, i32) = (0, 0);
     // 根のノードの場合、静的評価
     if depth == 0 {
         let point: i32 = eval_function(board, bef_board, is_player1);
@@ -3281,7 +3223,7 @@ pub fn nega_scout(
         return Node { best_move, point };
     }
     // 勝敗がついていれば終了
-    let mut point = judge(board, bef_board, is_player1);
+    let mut point: i32 = judge(board, bef_board, is_player1);
     if point != 0 {
         if point == WIN_POINT {
             point += depth;
@@ -3293,7 +3235,7 @@ pub fn nega_scout(
         return Node { best_move, point };
     }
 
-    let mut next_move_list = next_move_list(board, is_player1);
+    let mut next_move_list: Vec<(i32, i32)> = next_move_list(board, is_player1);
     // 次の手の候補の個数がしきい値以下の場合、negaalphaで探索
     if next_move_list.len() < SEARCH_THRESHOLD {
         for next_move in next_move_list {
@@ -3312,9 +3254,9 @@ pub fn nega_scout(
     } else {
         // 次の手の候補の個数がしきい値以上の場合、浅い探索で評価の高い手を先頭へ移動
         // 最もよさそうな手を選択
-        let mut max_point = LOSE_POINT;
-        let mut max_idx = 0;
-        let mut idx = 0;
+        let mut max_point: i32 = LOSE_POINT;
+        let mut max_idx: usize = 0;
+        let mut idx: usize = 0;
         for next_move in next_move_list.iter() {
             let point: i32 = shallow_search(board, next_move.1, is_player1);
             if max_point < point {
@@ -3364,7 +3306,6 @@ pub fn nega_scout(
             }
         }
     }
-
     Node {
         best_move,
         point: alpha,
@@ -3376,6 +3317,7 @@ pub struct Node {
     point: i32,
 }
 
+#[inline(always)]
 pub fn get_board_name(i: i32) -> String {
     match i {
         A1_INDEX => "A1".to_string(),
