@@ -83,7 +83,7 @@ const LOSE_POINT: i32 = -10000;
 const DEPTH: i32 = 13;
 const SEARCH_THRESHOLD: usize = 100;
 const HOST_NAME: &str = "localhost";
-//const HOST_NAME: &str = "192.168.11.4";
+//const HOST_NAME: &str = "192.168.11.8";
 const PORT_NUM: i32 = 4444;
 
 fn main() {
@@ -122,11 +122,13 @@ fn main() {
                     is_player1 = !is_player1;
                 }
                 let mut bef_board = bit_board::bit_board::BitBoard {
+                    pb1: 0b010_000_000_010,
                     lb1: 0b010_000_000_010,
                     kb1: 0,
                     zb1: 0,
                     hb1: 0,
                     nb1: 0,
+                    pb2: 0b010_000_000_010,
                     lb2: 0b010_000_000_010,
                     kb2: 0,
                     zb2: 0,
@@ -241,11 +243,13 @@ pub fn write_socket(writer: &mut BufWriter<&TcpStream>, msg: &str) {
 }
 
 pub fn make_bit_board(board_vec: &mut Vec<u8>) -> bit_board::bit_board::BitBoard {
+    let mut pb1: i32 = 0;
     let mut lb1: i32 = 0;
     let mut kb1: i32 = 0;
     let mut zb1: i32 = 0;
     let mut hb1: i32 = 0;
     let mut nb1: i32 = 0;
+    let mut pb2: i32 = 0;
     let mut lb2: i32 = 0;
     let mut kb2: i32 = 0;
     let mut zb2: i32 = 0;
@@ -262,6 +266,7 @@ pub fn make_bit_board(board_vec: &mut Vec<u8>) -> bit_board::bit_board::BitBoard
             //ex. "A1 g2"
             let p = piece_to_pos((b_iter[0], b_iter[1]));
             if b_iter[4] == b'1' {
+                pb1 |= 1 << p;
                 match b_iter[3] {
                     b'l' => lb1 |= 1 << p,
                     b'g' => kb1 |= 1 << p,
@@ -271,6 +276,7 @@ pub fn make_bit_board(board_vec: &mut Vec<u8>) -> bit_board::bit_board::BitBoard
                     _ => (),
                 }
             } else if b_iter[4] == b'2' {
+                pb2 |= 1 << p;
                 match b_iter[3] {
                     b'l' => lb2 |= 1 << p,
                     b'g' => kb2 |= 1 << p,
@@ -284,11 +290,13 @@ pub fn make_bit_board(board_vec: &mut Vec<u8>) -> bit_board::bit_board::BitBoard
     }
 
     bit_board::bit_board::BitBoard {
+        pb1,
         lb1,
         kb1,
         zb1,
         hb1,
         nb1,
+        pb2,
         lb2,
         kb2,
         zb2,
@@ -359,7 +367,7 @@ pub fn piece_to_pos(s: (u8, u8)) -> i32 {
 //     }
 // }
 
-#[inline(always)]
+//#[inline(always)]
 pub fn make_moved_board(
     bef_board: &bit_board::bit_board::BitBoard,
     move_vec: (i32, i32),
@@ -371,9 +379,12 @@ pub fn make_moved_board(
 
     // プレイヤー1の場合
     if is_player1 {
-        // ヒヨコの盤面を更新
+        // 先手の盤面を更新
+        board.pb1 = board.pb1 & !src | dst;
         if board.hb1 & src != 0 {
+            // ヒヨコの盤面を更新
             if (src & D_HAND_MASK == 0) && (dst & D_TRY_MASK != 0) {
+                // ニワトリに進化
                 board.hb1 = board.hb1 & !src;
                 board.nb1 = board.nb1 | dst;
             } else {
@@ -396,45 +407,53 @@ pub fn make_moved_board(
         if src & D_HAND_MASK != 0 {
             // 打った手駒のあった場所より右側に駒があった時、その駒たちをずらす（打った駒のD列の数字より大きい数字のマスに駒があるとき）
             let shift_bits: i32 = !(src - 1) & D_HAND_MASK;
-            let non_shift_bits: i32 = (src - 1) & D_HAND_MASK | !D_HAND_MASK;
-            board.kb1 = (board.kb1 & non_shift_bits) | ((board.kb1 & shift_bits) >> 1);
-            board.zb1 = (board.zb1 & non_shift_bits) | ((board.zb1 & shift_bits) >> 1);
-            board.hb1 = (board.hb1 & non_shift_bits) | ((board.hb1 & shift_bits) >> 1);
+            if shift_bits & board.pb1 != 0 {
+                let non_shift_bits: i32 = (src - 1) & D_HAND_MASK | !D_HAND_MASK;
+                board.pb1 = (board.pb1 & non_shift_bits) | ((board.pb1 & shift_bits) >> 1);
+                board.kb1 = (board.kb1 & non_shift_bits) | ((board.kb1 & shift_bits) >> 1);
+                board.zb1 = (board.zb1 & non_shift_bits) | ((board.zb1 & shift_bits) >> 1);
+                board.hb1 = (board.hb1 & non_shift_bits) | ((board.hb1 & shift_bits) >> 1);
+            }
         } else {
             // 移動先に相手のコマがある場合
-            if board.hb2 & dst != 0 {
-                // ヒヨコの盤面の駒を消し、取った駒を手持ちに加える
-                board.hb2 = board.hb2 & !dst;
-                board.hb1 =
-                    board.hb1 | (((board.kb1 | board.zb1 | board.hb1) & D_HAND_MASK) + (1 << 12));
-            } else if board.lb2 & dst != 0 {
-                // ライオンの盤面の駒を消し、取った駒を手持ちに加える
-                board.lb2 = board.lb2 & !dst;
-                board.lb1 =
-                    board.lb1 | (((board.kb1 | board.zb1 | board.hb1) & D_HAND_MASK) + (1 << 12));
-            } else if board.kb2 & dst != 0 {
-                // キリンの盤面の駒を消し、取った駒を手持ちに加える
-                board.kb2 = board.kb2 & !dst;
-                board.kb1 =
-                    board.kb1 | (((board.kb1 | board.zb1 | board.hb1) & D_HAND_MASK) + (1 << 12));
-            } else if board.zb2 & dst != 0 {
-                // ゾウの盤面の駒を消し、取った駒を手持ちに加える
-                board.zb2 = board.zb2 & !dst;
-                board.zb1 =
-                    board.zb1 | (((board.kb1 | board.zb1 | board.hb1) & D_HAND_MASK) + (1 << 12));
-            } else if board.nb2 & dst != 0 {
-                // ニワトリの盤面の駒を消し、取った駒を手持ちに加える（ヒヨコとして）
-                board.nb2 = board.nb2 & !dst;
-                board.hb1 =
-                    board.hb1 | (((board.kb1 | board.zb1 | board.hb1) & D_HAND_MASK) + (1 << 12));
+            if board.pb2 & dst != 0 {
+                // 後手の盤面で取られる駒を削除
+                board.pb2 &= !dst;
+                // 持ち駒に加える位置
+                let hand_pos = (board.pb1 & D_HAND_MASK) + (1 << 12);
+                board.pb1 |= hand_pos;
+                if board.hb2 & dst != 0 {
+                    // ヒヨコの盤面の駒を消し、取った駒を手持ちに加える
+                    board.hb2 = board.hb2 & !dst;
+                    board.hb1 = board.hb1 | hand_pos;
+                } else if board.lb2 & dst != 0 {
+                    // ライオンの盤面の駒を消し、取った駒を手持ちに加える
+                    board.lb2 = board.lb2 & !dst;
+                    board.lb1 = board.lb1 | hand_pos;
+                } else if board.kb2 & dst != 0 {
+                    // キリンの盤面の駒を消し、取った駒を手持ちに加える
+                    board.kb2 = board.kb2 & !dst;
+                    board.kb1 = board.kb1 | hand_pos;
+                } else if board.zb2 & dst != 0 {
+                    // ゾウの盤面の駒を消し、取った駒を手持ちに加える
+                    board.zb2 = board.zb2 & !dst;
+                    board.zb1 = board.zb1 | hand_pos;
+                } else if board.nb2 & dst != 0 {
+                    // ニワトリの盤面の駒を消し、取った駒を手持ちに加える（ヒヨコとして）
+                    board.nb2 = board.nb2 & !dst;
+                    board.hb1 = board.hb1 | hand_pos;
+                }
             }
         }
     }
     // プレイヤー2の場合
     else {
-        // ヒヨコの盤面を更新
+        // 後手の盤面を更新
+        board.pb2 = board.pb2 & !src | dst;
         if board.hb2 & src != 0 {
+            // ヒヨコの盤面を更新
             if (src & E_HAND_MASK == 0) && (dst & E_TRY_MASK != 0) {
+                // ニワトリに進化
                 board.hb2 = board.hb2 & !src;
                 board.nb2 = board.nb2 | dst;
             } else {
@@ -457,37 +476,43 @@ pub fn make_moved_board(
         if src & E_HAND_MASK != 0 {
             // 打った手駒のあった場所より右側に駒があった時、その駒たちをずらす（打った駒のE列の数字より大きい数字のマスに駒があるとき）
             let shift_bits: i32 = !(src - 1) & E_HAND_MASK;
-            let non_shift_bits: i32 = (src - 1) & E_HAND_MASK | !E_HAND_MASK;
-            board.kb2 = (board.kb2 & non_shift_bits) | ((board.kb2 & shift_bits) >> 1);
-            board.zb2 = (board.zb2 & non_shift_bits) | ((board.zb2 & shift_bits) >> 1);
-            board.hb2 = (board.hb2 & non_shift_bits) | ((board.hb2 & shift_bits) >> 1);
-        } else
-        // 移動先に相手のコマがある場合
-        if board.hb1 & dst != 0 {
-            // ヒヨコの盤面の駒を消し、取った駒を手持ちに加える
-            board.hb1 = board.hb1 & !dst;
-            board.hb2 =
-                board.hb2 | (((board.kb2 | board.zb2 | board.hb2) & E_HAND_MASK) + (1 << 18));
-        } else if board.lb1 & dst != 0 {
-            // ライオンの盤面の駒を消し、取った駒を手持ちに加える
-            board.lb1 = board.lb1 & !dst;
-            board.lb2 =
-                board.lb2 | (((board.kb2 | board.zb2 | board.hb2) & E_HAND_MASK) + (1 << 18));
-        } else if board.kb1 & dst != 0 {
-            // キリンの盤面の駒を消し、取った駒を手持ちに加える
-            board.kb1 = board.kb1 & !dst;
-            board.kb2 =
-                board.kb2 | (((board.kb2 | board.zb2 | board.hb2) & E_HAND_MASK) + (1 << 18));
-        } else if board.zb1 & dst != 0 {
-            // ゾウの盤面の駒を消し、取った駒を手持ちに加える
-            board.zb1 = board.zb1 & !dst;
-            board.zb2 =
-                board.zb2 | (((board.kb2 | board.zb2 | board.hb2) & E_HAND_MASK) + (1 << 18));
-        } else if board.nb1 & dst != 0 {
-            // ニワトリの盤面の駒を消し、取った駒を手持ちに加える（ヒヨコとして）
-            board.nb1 = board.nb1 & !dst;
-            board.hb2 =
-                board.hb2 | (((board.kb2 | board.zb2 | board.hb2) & E_HAND_MASK) + (1 << 18));
+            if shift_bits & board.pb2 != 0 {
+                let non_shift_bits: i32 = (src - 1) & E_HAND_MASK | !E_HAND_MASK;
+                board.pb2 = (board.pb2 & non_shift_bits) | ((board.pb2 & shift_bits) >> 1);
+                board.kb2 = (board.kb2 & non_shift_bits) | ((board.kb2 & shift_bits) >> 1);
+                board.zb2 = (board.zb2 & non_shift_bits) | ((board.zb2 & shift_bits) >> 1);
+                board.hb2 = (board.hb2 & non_shift_bits) | ((board.hb2 & shift_bits) >> 1);
+            }
+        } else {
+            // 移動先に相手のコマがある場合
+            if board.pb1 & dst != 0 {
+                // 先手の盤面で取られる駒を削除
+                board.pb1 &= !dst;
+                //持ち駒に加える位置
+                let hand_pos = (board.pb2 & E_HAND_MASK) + (1 << 18);
+                board.pb2 |= hand_pos;
+                if board.hb1 & dst != 0 {
+                    // ヒヨコの盤面の駒を消し、取った駒を手持ちに加える
+                    board.hb1 = board.hb1 & !dst;
+                    board.hb2 = board.hb2 | hand_pos;
+                } else if board.lb1 & dst != 0 {
+                    // ライオンの盤面の駒を消し、取った駒を手持ちに加える
+                    board.lb1 = board.lb1 & !dst;
+                    board.lb2 = board.lb2 | hand_pos;
+                } else if board.kb1 & dst != 0 {
+                    // キリンの盤面の駒を消し、取った駒を手持ちに加える
+                    board.kb1 = board.kb1 & !dst;
+                    board.kb2 = board.kb2 | hand_pos;
+                } else if board.zb1 & dst != 0 {
+                    // ゾウの盤面の駒を消し、取った駒を手持ちに加える
+                    board.zb1 = board.zb1 & !dst;
+                    board.zb2 = board.zb2 | hand_pos;
+                } else if board.nb1 & dst != 0 {
+                    // ニワトリの盤面の駒を消し、取った駒を手持ちに加える（ヒヨコとして）
+                    board.nb1 = board.nb1 & !dst;
+                    board.hb2 = board.hb2 | hand_pos;
+                }
+            }
         }
     }
     board
@@ -499,7 +524,7 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
 
     if is_player1 {
         // 1pの手の探索
-        let player_board: i32 = board.lb1 | board.hb1 | board.kb1 | board.zb1 | board.nb1;
+        let player_board: i32 = board.pb1;
 
         // 1pひよこの手探索
         // board.hb1の1となる下位ビットを取得
@@ -1638,8 +1663,7 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
 
         // 持ち駒を打つ場合
-        let empty_bit: i32 =
-            !(player_board | board.lb2 | board.hb2 | board.kb2 | board.zb2 | board.nb2);
+        let empty_bit: i32 = !(board.pb1 | board.pb2);
 
         // 1pヒヨコ
         if board.hb1 & D_HAND_MASK != 0 {
@@ -1763,7 +1787,7 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
     } else {
         // 2pの手の探索
-        let player_board: i32 = board.lb2 | board.hb2 | board.kb2 | board.zb2 | board.nb2;
+        let player_board: i32 = board.pb2;
 
         // 2pひよこの手探索
         let mut target_bit: i32 = board.hb2 & -board.hb2;
@@ -2900,8 +2924,7 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
 
         // 持ち駒を打つ場合
-        let empty_bit: i32 =
-            !(player_board | board.lb1 | board.hb1 | board.kb1 | board.zb1 | board.nb1);
+        let empty_bit: i32 = !(board.pb1 | board.pb2);
 
         // 2pヒヨコ
         if board.hb2 & E_HAND_MASK != 0 {
@@ -3170,33 +3193,38 @@ pub fn eval_function(
     point
 }
 
-#[inline(always)]
+//#[inline(always)]
 pub fn shallow_search(board: &bit_board::bit_board::BitBoard, dst: i32, is_player1: bool) -> i32 {
-    // プレイヤー1の場合
+    // 次の手で相手のコマを取れる場合、コマに応じて加点
     if is_player1 {
-        if board.lb2 & dst != 0 {
-            return WIN_POINT;
-        } else if board.kb2 & dst != 0 {
-            return RB_BOARD_POINT;
-        } else if board.zb2 & dst != 0 {
-            return BB_BOARD_POINT;
-        } else if board.hb2 & dst != 0 {
-            return PB_BOARD_POINT;
-        } else if board.nb2 & dst != 0 {
-            return PPB_BOARD_POINT;
+        // プレイヤー1の場合
+        if board.pb2 & dst != 0 {
+            if board.lb2 & dst != 0 {
+                return WIN_POINT;
+            } else if board.kb2 & dst != 0 {
+                return RB_BOARD_POINT;
+            } else if board.zb2 & dst != 0 {
+                return BB_BOARD_POINT;
+            } else if board.hb2 & dst != 0 {
+                return PB_BOARD_POINT;
+            } else if board.nb2 & dst != 0 {
+                return PPB_BOARD_POINT;
+            }
         }
     } else {
         // プレイヤー2の場合
-        if board.lb1 & dst != 0 {
-            return WIN_POINT;
-        } else if board.kb1 & dst != 0 {
-            return RB_BOARD_POINT;
-        } else if board.zb1 & dst != 0 {
-            return BB_BOARD_POINT;
-        } else if board.hb1 & dst != 0 {
-            return PB_BOARD_POINT;
-        } else if board.nb1 & dst != 0 {
-            return PPB_BOARD_POINT;
+        if board.pb1 & dst != 0 {
+            if board.lb1 & dst != 0 {
+                return WIN_POINT;
+            } else if board.kb1 & dst != 0 {
+                return RB_BOARD_POINT;
+            } else if board.zb1 & dst != 0 {
+                return BB_BOARD_POINT;
+            } else if board.hb1 & dst != 0 {
+                return PB_BOARD_POINT;
+            } else if board.nb1 & dst != 0 {
+                return PPB_BOARD_POINT;
+            }
         }
     }
     0
@@ -3215,7 +3243,6 @@ pub fn nega_scout(
     // 根のノードの場合、静的評価
     if depth == 0 {
         let point: i32 = eval_function(board, bef_board, is_player1);
-        //print_nega(depth, point, best_move);
         return Node { best_move, point };
     }
     // 勝敗がついていれば終了
@@ -3226,8 +3253,6 @@ pub fn nega_scout(
         } else {
             point -= depth;
         }
-
-        //print_nega(depth, point, best_move);
         return Node { best_move, point };
     }
 
@@ -3380,11 +3405,13 @@ pub fn get_board_name(i: i32) -> String {
 #[test]
 fn test1_make_moved_board() {
     let mut board = bit_board::bit_board::BitBoard {
+        pb1: 0b_000000_000000_111_010_000_000,
         lb1: 0b_000000_000000_010_000_000_000,
         kb1: 0b_000000_000000_100_000_000_000,
         zb1: 0b_000000_000000_001_000_000_000,
         hb1: 0b_000000_000000_000_010_000_000,
         nb1: 0b_000000_000000_000_000_000_000,
+        pb2: 0b_000000_000000_000_000_010_111,
         lb2: 0b_000000_000000_000_000_000_010,
         kb2: 0b_000000_000000_000_000_000_001,
         zb2: 0b_000000_000000_000_000_000_100,
@@ -3422,11 +3449,13 @@ fn test1_make_moved_board() {
     }
 
     let moved_board = bit_board::bit_board::BitBoard {
+        pb1: 0b_000000_000011_001_000_000_000,
         lb1: 0b_000000_000000_000_000_000_000,
         kb1: 0b_000000_000011_000_000_000_000,
         zb1: 0b_000000_000000_000_000_000_000,
         hb1: 0b_000000_000000_001_000_000_000,
         nb1: 0b_000000_000000_000_000_000_000,
+        pb2: 0b_000001_000000_000_110_010_010,
         lb2: 0b_000001_000000_000_000_000_010,
         kb2: 0b_000000_000000_000_000_000_000,
         zb2: 0b_000000_000000_000_010_010_000,
@@ -3439,11 +3468,13 @@ fn test1_make_moved_board() {
 #[test]
 fn test2_make_moved_board() {
     let mut board = bit_board::bit_board::BitBoard {
+        pb1: 0b_000000_000000_111_010_000_000,
         lb1: 0b_000000_000000_010_000_000_000,
         kb1: 0b_000000_000000_100_000_000_000,
         zb1: 0b_000000_000000_001_000_000_000,
         hb1: 0b_000000_000000_000_010_000_000,
         nb1: 0b_000000_000000_000_000_000_000,
+        pb2: 0b_000000_000000_000_000_010_111,
         lb2: 0b_000000_000000_000_000_000_010,
         kb2: 0b_000000_000000_000_000_000_001,
         zb2: 0b_000000_000000_000_000_000_100,
@@ -3466,18 +3497,22 @@ fn test2_make_moved_board() {
         (D1_INDEX, A3_INDEX),
     ];
     let mut is_player1 = true;
+    println!("{}", board);
     for move_vec in move_vec_list {
         board = make_moved_board(&board, move_vec, is_player1);
-        println!("{:?}", board);
+        println!("{}, {:?}", if is_player1 { "p1" } else { "p2" }, move_vec);
+        println!("{}", board);
         is_player1 = !is_player1;
     }
 
     let moved_board = bit_board::bit_board::BitBoard {
+        pb1: 0b_000000_000011_101_011_001_000,
         lb1: 0b_000000_000000_000_000_001_000,
         kb1: 0b_000000_000000_100_010_000_000,
         zb1: 0b_000000_000001_001_000_000_000,
         hb1: 0b_000000_000010_000_001_000_000,
         nb1: 0b_000000_000000_000_000_000_000,
+        pb2: 0b_000000_000000_000_000_000_010,
         lb2: 0b_000000_000000_000_000_000_010,
         kb2: 0b_000000_000000_000_000_000_000,
         zb2: 0b_000000_000000_000_000_000_000,
@@ -3490,11 +3525,13 @@ fn test2_make_moved_board() {
 #[test]
 fn test3_make_moved_board() {
     let mut board = bit_board::bit_board::BitBoard {
+        pb1: 0b_000000_000000_111_010_000_000,
         lb1: 0b_000000_000000_010_000_000_000,
         kb1: 0b_000000_000000_100_000_000_000,
         zb1: 0b_000000_000000_001_000_000_000,
         hb1: 0b_000000_000000_000_010_000_000,
         nb1: 0b_000000_000000_000_000_000_000,
+        pb2: 0b_000000_000000_000_000_010_111,
         lb2: 0b_000000_000000_000_000_000_010,
         kb2: 0b_000000_000000_000_000_000_001,
         zb2: 0b_000000_000000_000_000_000_100,
@@ -3524,34 +3561,37 @@ fn test3_make_moved_board() {
         is_player1 = !is_player1;
     }
     let moved_board = bit_board::bit_board::BitBoard {
+        pb1: 0b_000000_000000_000_000_000_010,
         lb1: 0b_000000_000000_000_000_000_010,
         kb1: 0b_000000_000000_000_000_000_000,
         zb1: 0b_000000_000000_000_000_000_000,
         hb1: 0b_000000_000000_000_000_000_000,
         nb1: 0b_000000_000000_000_000_000_000,
+
+        pb2: 0b_000011_000000_110_010_000_101,
         lb2: 0b_000000_000000_000_010_000_000,
         kb2: 0b_000000_000000_010_000_000_001,
-        zb2: 0b_000000_000000_000_000_000_100,
-        hb2: 0b_000000_000000_100_000_000_000,
+        zb2: 0b_000001_000000_000_000_000_100,
+        hb2: 0b_000010_000000_100_000_000_000,
         nb2: 0b_000000_000000_000_000_000_000,
     };
     assert_eq!(moved_board, board);
 }
 
-#[test]
-fn test1_eval_finction() {
-    let board = bit_board::bit_board::BitBoard {
-        hb1: 4112,
-        lb1: 1024,
-        kb1: 2048,
-        zb1: 512,
-        nb1: 0,
-        hb2: 0,
-        lb2: 32,
-        kb2: 1,
-        zb2: 4,
-        nb2: 0,
-    };
-    let point: i32 = eval_function(&board, &board, true);
-    println!("{}", point);
-}
+// #[test]
+// fn test1_eval_finction() {
+//     let board = bit_board::bit_board::BitBoard {
+//         hb1: 4112,
+//         lb1: 1024,
+//         kb1: 2048,
+//         zb1: 512,
+//         nb1: 0,
+//         hb2: 0,
+//         lb2: 32,
+//         kb2: 1,
+//         zb2: 4,
+//         nb2: 0,
+//     };
+//     let point: i32 = eval_function(&board, &board, true);
+//     println!("{}", point);
+// }
