@@ -350,30 +350,6 @@ pub fn make_moved_board(
 
     // プレイヤー1の場合
     if is_player1 {
-        // 先手の盤面を更新
-        board.pb1 = board.pb1 & !src | dst;
-        if board.hb1 & src != 0 {
-            // ヒヨコの盤面を更新
-            if (src & D_HAND_MASK == 0) && (dst & D_TRY_MASK != 0) {
-                // ニワトリに進化
-                board.hb1 = board.hb1 & !src;
-                board.nb1 = board.nb1 | dst;
-            } else {
-                board.hb1 = board.hb1 & !src | dst;
-            }
-        } else if board.lb1 & src != 0 {
-            // ライオンの盤面を更新
-            board.lb1 = board.lb1 & !src | dst;
-        } else if board.kb1 & src != 0 {
-            // キリンの盤面を更新
-            board.kb1 = board.kb1 & !src | dst;
-        } else if board.zb1 & src != 0 {
-            // ゾウの盤面を更新
-            board.zb1 = board.zb1 & !src | dst;
-        } else if board.nb1 & src != 0 {
-            // ニワトリの盤面を更新
-            board.nb1 = board.nb1 & !src | dst;
-        }
         // 打った駒が手ごまの場合
         if src & D_HAND_MASK != 0 {
             // 打った手駒のあった場所より右側に駒があった時、その駒たちをずらす（打った駒のD列の数字より大きい数字のマスに駒があるとき）
@@ -415,6 +391,30 @@ pub fn make_moved_board(
                     board.hb1 = board.hb1 | hand_pos;
                 }
             }
+        }
+        // 先手の盤面を更新
+        board.pb1 = board.pb1 & !src | dst;
+        if board.hb1 & src != 0 {
+            // ヒヨコの盤面を更新
+            if (src & D_HAND_MASK == 0) && (dst & D_TRY_MASK != 0) {
+                // ニワトリに進化
+                board.hb1 = board.hb1 & !src;
+                board.nb1 = board.nb1 | dst;
+            } else {
+                board.hb1 = board.hb1 & !src | dst;
+            }
+        } else if board.lb1 & src != 0 {
+            // ライオンの盤面を更新
+            board.lb1 = board.lb1 & !src | dst;
+        } else if board.kb1 & src != 0 {
+            // キリンの盤面を更新
+            board.kb1 = board.kb1 & !src | dst;
+        } else if board.zb1 & src != 0 {
+            // ゾウの盤面を更新
+            board.zb1 = board.zb1 & !src | dst;
+        } else if board.nb1 & src != 0 {
+            // ニワトリの盤面を更新
+            board.nb1 = board.nb1 & !src | dst;
         }
     }
     // プレイヤー2の場合
@@ -459,7 +459,7 @@ pub fn make_moved_board(
             if board.pb1 & dst != 0 {
                 // 先手の盤面で取られる駒を削除
                 board.pb1 &= !dst;
-                //持ち駒に加える位置
+                // 持ち駒に加える位置
                 let hand_pos = (board.pb2 & E_HAND_MASK) + (1 << 18);
                 board.pb2 |= hand_pos;
                 if board.hb1 & dst != 0 {
@@ -1089,7 +1089,6 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
 
         // 1pライオンの手探索
-        // 1つ目のコマの探索
         target_bit = board.lb1;
         match target_bit {
             A1_INDEX => {
@@ -2350,7 +2349,6 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         }
 
         // 2pライオンの手探索
-        // 1つ目のコマの探索
         target_bit = board.lb2;
         match target_bit {
             A1_INDEX => {
@@ -3059,42 +3057,42 @@ pub fn eval_function(
         return point;
     }
     //勝敗がついていなければ盤面の点数を返す
-    // ニワトリ2,ヒヨコ0の場合
-    if board.hb1 | board.hb2 == 0 {
-        // ニワトリの得点
-        point += if board.nb1 != 0 {
-            N_BOARD_POINT
+    // ニワトリ0,ヒヨコ2の場合
+    if board.nb1 | board.nb2 == 0 {
+        // ヒヨコの得点
+        point += if board.hb1 & BOARD_MASK != 0 {
+            H_BOARD_POINT
         } else {
-            -N_BOARD_POINT
+            -H_BOARD_POINT
         };
-        point += if board.nb2 != 0 {
-            -N_BOARD_POINT
+        point += if board.hb2 & BOARD_MASK != 0 {
+            -H_BOARD_POINT
         } else {
-            N_BOARD_POINT
+            H_BOARD_POINT
+        };
+        point += if board.hb1 & HAND_MASK != 0 {
+            H_HAND_POINT
+        } else {
+            -H_HAND_POINT
+        };
+        point += if board.hb2 & HAND_MASK != 0 {
+            -H_HAND_POINT
+        } else {
+            H_HAND_POINT
         };
     } else {
-        // ニワトリ0,ヒヨコ2の場合
-        if board.nb1 | board.nb2 == 0 {
-            // ヒヨコの得点
-            point += if board.hb1 & BOARD_MASK != 0 {
-                H_BOARD_POINT
+        // ニワトリ2,ヒヨコ0の場合
+        if board.hb1 | board.hb2 == 0 {
+            // ニワトリの得点
+            point += if board.nb1 != 0 {
+                N_BOARD_POINT
             } else {
-                -H_BOARD_POINT
+                -N_BOARD_POINT
             };
-            point += if board.hb2 & BOARD_MASK != 0 {
-                -H_BOARD_POINT
+            point += if board.nb2 != 0 {
+                -N_BOARD_POINT
             } else {
-                H_BOARD_POINT
-            };
-            point += if board.hb1 & HAND_MASK != 0 {
-                H_HAND_POINT
-            } else {
-                -H_HAND_POINT
-            };
-            point += if board.hb2 & HAND_MASK != 0 {
-                -H_HAND_POINT
-            } else {
-                H_HAND_POINT
+                N_BOARD_POINT
             };
         } else {
             // ニワトリ1,ヒヨコ1の場合
