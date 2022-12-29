@@ -81,7 +81,7 @@ const LOSE_POINT: i32 = -10000;
 
 // パラメータ
 const DEPTH: i32 = 9;
-const SHALLOW_DEPTH: i32 = 3;
+const SHALLOW_DEPTH: i32 = 5;
 const HOST_NAME: &str = "localhost";
 //const HOST_NAME: &str = "192.168.11.8";
 const PORT_NUM: i32 = 4444;
@@ -154,6 +154,21 @@ fn main() {
                         let best_node;
                         // println!("{:#?}", board);
 
+                        // 自分の手と相手の手の探索数（相手は最大値）を取得
+                        let next_move_list1: Vec<(i32, i32)> = next_move_list(&board, is_player1);
+                        let p1_move_count = next_move_list1.len();
+                        print!("p1:{}, p2:", p1_move_count);
+                        let mut p2_move_count = 0;
+                        for next_move in next_move_list1 {
+                            let next_board = make_moved_board(&bef_board, next_move, !is_player1);
+                            let next_move_list2 = next_move_list(&next_board, !is_player1);
+                            print!("{}, ", next_move_list2.len());
+                            if next_move_list2.len() > p2_move_count {
+                                p2_move_count = next_move_list2.len();
+                            }
+                        }
+                        println!("");
+
                         // 持ち駒と最初の探索数によって深さを変える
                         let mut depth: i32 = DEPTH;
                         let p1_hand_count: u32 = (&board.pb1 & D_HAND_MASK).count_ones();
@@ -196,7 +211,7 @@ fn main() {
                         }
 
                         println!(
-                            "{}, point:{:>05}, d:{}, time:{}.{}s ({}), hand count:{:>01}+{:>01}={:>01}",
+                            "{}, point:{:>05}, d:{}, time:{}.{}s ({}), hand count:{:>01}+{:>01}={:>01}, move count:{:>02}+{:>02}={:>02}",
                             move_str,
                             best_node.point,
                             depth,
@@ -206,6 +221,9 @@ fn main() {
                             p1_hand_count,
                             p2_hand_count,
                             p1_hand_count + p2_hand_count,
+                            p1_move_count,
+                            p2_move_count,
+                            p1_move_count + p2_move_count,
                         );
                         //println!("-------------------");
 
@@ -3394,6 +3412,172 @@ pub fn get_board_name(i: i32) -> String {
         E6_INDEX => "E6".to_string(),
         _ => "".to_string(),
     }
+}
+
+#[test]
+fn make_moved_board_test_base_move() {
+    let mut board = bit_board::bit_board::BitBoard {
+        pb1: 0b_000000_000000_111_010_000_000,
+        lb: 0b_000000_000000_010_000_000_010,
+        kb: 0b_000000_000000_100_000_000_001,
+        zb: 0b_000000_000000_001_000_000_100,
+        hb: 0b_000000_000000_000_010_010_000,
+        nb: 0b_000000_000000_000_000_000_000,
+        pb2: 0b_000000_000000_000_000_010_111,
+    };
+    let move_vec_list = [
+        // 盤面→盤面
+        (B3_INDEX, C3_INDEX), // h1
+        (B2_INDEX, A2_INDEX), // h2
+        (C4_INDEX, C2_INDEX), // k1
+        (A1_INDEX, A3_INDEX), // k2
+        (A4_INDEX, B3_INDEX), // z1
+        (C1_INDEX, B2_INDEX), // z2
+        (B4_INDEX, C4_INDEX), // l1
+        (B1_INDEX, A1_INDEX), // l2
+        // 盤面→盤面 駒取得
+        (C3_INDEX, B2_INDEX), // h1 z2
+        (A2_INDEX, B3_INDEX), // h2 z1
+        (C2_INDEX, B3_INDEX), // k1 h2
+        (A3_INDEX, B2_INDEX), // k2 h1
+        (C4_INDEX, B2_INDEX), // l1 k2
+        (A1_INDEX, B3_INDEX), // l2 k1
+        // 手ごま→盤面
+        (D2_INDEX, A2_INDEX), // h1
+        (E2_INDEX, C3_INDEX), // h2
+        (D2_INDEX, B4_INDEX), // k1
+        (E2_INDEX, B1_INDEX), // k2
+        (D1_INDEX, A3_INDEX), // z1
+        (E1_INDEX, C2_INDEX), // z2
+        // ヒヨコ成り
+        (A2_INDEX, A1_INDEX), // h1
+        (C3_INDEX, C4_INDEX), // h2
+        // 盤面→盤面
+        (A1_INDEX, A2_INDEX), // n1
+        (C4_INDEX, C3_INDEX), // n2
+        // 盤面→盤面 駒取得
+        (A2_INDEX, B3_INDEX), // n1 l2
+        (C3_INDEX, B2_INDEX), // n2 l1
+        // 盤面→盤面 駒取得
+        (A3_INDEX, B2_INDEX), // z1 n1
+        (C2_INDEX, B3_INDEX), // z2 n2
+    ];
+    println!("{}", board);
+    let mut is_player1 = true;
+    for move_vec in move_vec_list {
+        print!("{:?}", move_vec);
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        is_player1 = !is_player1;
+    }
+
+    let moved_board = bit_board::bit_board::BitBoard {
+        pb1: 0b_000000_000011_010_000_010_000,
+        lb: 0b_000001_000001_000_000_000_000,
+        kb: 0b_000000_000000_010_000_000_010,
+        zb: 0b_000000_000000_000_010_010_000,
+        hb: 0b_000010_000010_000_000_000_000,
+        nb: 0b_000000_000000_000_000_000_000,
+        pb2: 0b_000011_000000_000_010_000_010,
+    };
+    assert_eq!(moved_board, board);
+}
+#[test]
+fn make_moved_board_test_hand_p1() {
+    let mut board = bit_board::bit_board::BitBoard {
+        pb1: 0b_000000_111111_010_000_000_000,
+        lb: 0b_000000_000000_010_000_000_010,
+        kb: 0b_000000_011000_000_000_000_000,
+        zb: 0b_000000_100010_000_000_000_000,
+        hb: 0b_000000_000101_000_000_000_000,
+        nb: 0b_000000_000000_000_000_000_000,
+        pb2: 0b_000000_000000_000_000_000_010,
+    };
+    let move_vec_list = [
+        // 手ごま→盤面 手ごま数6個
+        (D1_INDEX, A3_INDEX), // h1
+        (B1_INDEX, A1_INDEX), // l2_
+        // 手ごま→盤面 手ごま数5個
+        (D1_INDEX, B3_INDEX), // z1
+        (A1_INDEX, B1_INDEX), // l2_
+        // 手ごま→盤面 手ごま数4個
+        (D1_INDEX, A2_INDEX), // h1
+        (B1_INDEX, A1_INDEX), // l2_
+        // 手ごま→盤面 手ごま数3個
+        (D1_INDEX, C3_INDEX), // k1
+        (A1_INDEX, B1_INDEX), // l2_
+        // 手ごま→盤面 手ごま数2個
+        (D1_INDEX, C2_INDEX), // k1
+        (B1_INDEX, A1_INDEX), // l2_
+        // 手ごま→盤面 手ごま数1個
+        (D1_INDEX, B2_INDEX), // z1
+        (A1_INDEX, B1_INDEX), // l2_
+    ];
+    println!("{}", board);
+    let mut is_player1 = true;
+    for move_vec in move_vec_list {
+        print!("{:?}", move_vec);
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        is_player1 = !is_player1;
+    }
+
+    let moved_board = bit_board::bit_board::BitBoard {
+        pb1: 0b_000000_000000_010_111_111_000,
+        lb: 0b_000000_000000_010_000_000_010,
+        kb: 0b_000000_000000_000_100_100_000,
+        zb: 0b_000000_000000_000_010_010_000,
+        hb: 0b_000000_000000_000_001_001_000,
+        nb: 0b_000000_000000_000_000_000_000,
+        pb2: 0b_000000_000000_000_000_000_010,
+    };
+    assert_eq!(moved_board, board);
+}
+#[test]
+fn make_moved_board_test_hand_p2() {
+    let mut board = bit_board::bit_board::BitBoard {
+        pb1: 0b_000000_000000_010_000_000_000,
+        lb: 0b_000000_000000_010_000_000_010,
+        kb: 0b_011000_000000_000_000_000_000,
+        zb: 0b_100010_000000_000_000_000_000,
+        hb: 0b_000101_000000_000_000_000_000,
+        nb: 0b_000000_000000_000_000_000_000,
+        pb2: 0b_111111_000000_000_000_000_010,
+    };
+    let move_vec_list = [
+        // 手ごま→盤面 手ごま数6個
+        (B4_INDEX, A4_INDEX), // l1_
+        (E1_INDEX, A2_INDEX), // h2
+        (A4_INDEX, B4_INDEX), // l1_
+        (E1_INDEX, B2_INDEX), // z2
+        (B4_INDEX, A4_INDEX), // l1_
+        (E1_INDEX, A3_INDEX), // h2
+        (A4_INDEX, B4_INDEX), // l1_
+        (E1_INDEX, C2_INDEX), // k2
+        (B4_INDEX, A4_INDEX), // l1_
+        (E1_INDEX, C3_INDEX), // k2
+        (A4_INDEX, B4_INDEX), // l1_
+        (E1_INDEX, B3_INDEX), // z2
+    ];
+    println!("{}", board);
+    let mut is_player1 = true;
+    for move_vec in move_vec_list {
+        print!("{:?}", move_vec);
+        board = make_moved_board(&board, move_vec, is_player1);
+        println!("{}", board);
+        is_player1 = !is_player1;
+    }
+
+    let moved_board = bit_board::bit_board::BitBoard {
+        pb1: 0b_000000_000000_010_000_000_000,
+        lb: 0b_000000_000000_010_000_000_010,
+        kb: 0b_000000_000000_000_100_100_000,
+        zb: 0b_000000_000000_000_010_010_000,
+        hb: 0b_000000_000000_000_001_001_000,
+        nb: 0b_000000_000000_000_000_000_000,
+        pb2: 0b_000000_000000_000_111_111_010,
+    };
+    assert_eq!(moved_board, board);
 }
 
 #[test]
