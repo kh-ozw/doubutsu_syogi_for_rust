@@ -329,7 +329,7 @@ pub fn piece_to_pos(s: (u8, u8)) -> i32 {
     }
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn make_moved_board(
     bef_board: &bit_board::bit_board::BitBoard,
     move_vec: (i32, i32),
@@ -520,7 +520,7 @@ pub fn make_moved_board(
     board
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) -> Vec<(i32, i32)> {
     let mut next_move_list: Vec<(i32, i32)> = vec![];
 
@@ -3058,7 +3058,7 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
     next_move_list
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn judge(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3084,7 +3084,7 @@ pub fn judge(
     0
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn eval_function(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3206,7 +3206,7 @@ pub fn eval_function(
     point
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn nega_alpha(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3250,7 +3250,7 @@ pub fn nega_alpha(
     }
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn nega_scout(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3383,7 +3383,7 @@ pub struct Node {
     point: i32,
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn get_board_name(i: i32) -> String {
     match i {
         A1_INDEX => "A1".to_string(),
