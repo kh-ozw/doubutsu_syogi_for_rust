@@ -67,20 +67,20 @@ const D_HAND_MASK: i32 = 0b111111 << 12;
 const E_HAND_MASK: i32 = 0b111111 << 18;
 
 // コマの得点
-const H_BOARD_POINT: i32 = 1;
-const H_HAND_POINT: i32 = 2;
-const Z_BOARD_POINT: i32 = 6;
-const Z_HAND_POINT: i32 = 8;
-const K_BOARD_POINT: i32 = 5;
-const K_HAND_POINT: i32 = 7;
-const N_BOARD_POINT: i32 = 6;
+const H_BOARD_POINT: i32 = 10;
+const H_HAND_POINT: i32 = 12;
+const Z_BOARD_POINT: i32 = 60;
+const Z_HAND_POINT: i32 = 62;
+const K_BOARD_POINT: i32 = 50;
+const K_HAND_POINT: i32 = 52;
+const N_BOARD_POINT: i32 = 60;
 
 // 勝敗判定時のポイント
 const WIN_POINT: i32 = 10000;
 const LOSE_POINT: i32 = -10000;
 
 // パラメータ
-const DEPTH: i32 = 9;
+const DEPTH: i32 = 7;
 const SHALLOW_DEPTH: i32 = 5;
 const HOST_NAME: &str = "localhost";
 //const HOST_NAME: &str = "192.168.11.8";
@@ -156,24 +156,31 @@ fn main() {
 
                         // 自分の手と相手の手の探索数（相手は最大値）を取得
                         let next_move_list1: Vec<(i32, i32)> = next_move_list(&board, is_player1);
-                        let p1_move_count = next_move_list1.len();
-                        print!("p1:{}, p2:", p1_move_count);
+                        let mut p1_move_count = 0;
                         let mut p2_move_count = 0;
+                        // print!("p1:{}, p2:", next_move_list1.len());
                         for next_move in next_move_list1 {
-                            let next_board = make_moved_board(&bef_board, next_move, !is_player1);
+                            p1_move_count += 1;
+                            let mut next_board =
+                                make_moved_board(&bef_board, next_move, !is_player1);
+                            next_board.pb1 &= BOARD_MASK;
+                            next_board.pb2 &= BOARD_MASK;
+                            next_board.lb &= BOARD_MASK;
+                            next_board.kb &= BOARD_MASK;
+                            next_board.zb &= BOARD_MASK;
+                            next_board.hb &= BOARD_MASK;
+                            next_board.nb &= BOARD_MASK;
                             let next_move_list2 = next_move_list(&next_board, !is_player1);
-                            print!("{}, ", next_move_list2.len());
-                            if next_move_list2.len() > p2_move_count {
-                                p2_move_count = next_move_list2.len();
-                            }
+                            // print!("{}, ", next_move_list2.len());
+                            p2_move_count += next_move_list2.len();
                         }
-                        println!("");
-
+                        // println!("");
                         // 持ち駒と最初の探索数によって深さを変える
                         let mut depth: i32 = DEPTH;
                         let p1_hand_count: u32 = (&board.pb1 & D_HAND_MASK).count_ones();
                         let p2_hand_count: u32 = (&board.pb2 & E_HAND_MASK).count_ones();
-                        if p1_hand_count + p2_hand_count <= 2 {
+                        if p1_hand_count + p2_hand_count <= 2 && p1_move_count + p2_move_count < 100
+                        {
                             depth = depth;
                         } else if p1_hand_count + p2_hand_count <= 4 {
                             depth = depth - 1;
@@ -182,9 +189,21 @@ fn main() {
                         }
 
                         // 探索
+                        let mut node_count = 0;
+                        let mut cut_count = 0;
+                        let mut search_count = 0;
                         let start = Instant::now();
-                        best_node =
-                            nega_scout(&board, &bef_board, is_player1, depth, -50000, 50000);
+                        best_node = nega_scout(
+                            &board,
+                            &bef_board,
+                            is_player1,
+                            depth,
+                            -50000,
+                            50000,
+                            &mut node_count,
+                            &mut cut_count,
+                            &mut search_count,
+                        );
                         let end = start.elapsed();
 
                         // 自分の手を送信
@@ -224,6 +243,13 @@ fn main() {
                             p1_move_count,
                             p2_move_count,
                             p1_move_count + p2_move_count,
+                        );
+                        println!(
+                            "all:{}, cut:{}, all-cut:{}, cut/all:{}",
+                            node_count,
+                            cut_count,
+                            search_count,
+                            100 * cut_count / node_count
                         );
                         //println!("-------------------");
 
@@ -329,7 +355,7 @@ pub fn piece_to_pos(s: (u8, u8)) -> i32 {
     }
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn make_moved_board(
     bef_board: &bit_board::bit_board::BitBoard,
     move_vec: (i32, i32),
@@ -520,7 +546,7 @@ pub fn make_moved_board(
     board
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) -> Vec<(i32, i32)> {
     let mut next_move_list: Vec<(i32, i32)> = vec![];
 
@@ -1673,9 +1699,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         // 1pヒヨコ
         if board.hb & D_HAND_MASK != 0 {
             let hand_index: i32 = (board.hb & D_HAND_MASK) & -(board.hb & D_HAND_MASK);
-            if empty_bit & A1_INDEX != 0 {
-                next_move_list.push((hand_index, A1_INDEX));
-            }
+            // if empty_bit & A1_INDEX != 0 {
+            //     next_move_list.push((hand_index, A1_INDEX));
+            // }
             if empty_bit & A2_INDEX != 0 {
                 next_move_list.push((hand_index, A2_INDEX));
             }
@@ -1685,9 +1711,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             if empty_bit & A4_INDEX != 0 {
                 next_move_list.push((hand_index, A4_INDEX));
             }
-            if empty_bit & B1_INDEX != 0 {
-                next_move_list.push((hand_index, B1_INDEX));
-            }
+            // if empty_bit & B1_INDEX != 0 {
+            //     next_move_list.push((hand_index, B1_INDEX));
+            // }
             if empty_bit & B2_INDEX != 0 {
                 next_move_list.push((hand_index, B2_INDEX));
             }
@@ -1697,9 +1723,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             if empty_bit & B4_INDEX != 0 {
                 next_move_list.push((hand_index, B4_INDEX));
             }
-            if empty_bit & C1_INDEX != 0 {
-                next_move_list.push((hand_index, C1_INDEX));
-            }
+            // if empty_bit & C1_INDEX != 0 {
+            //     next_move_list.push((hand_index, C1_INDEX));
+            // }
             if empty_bit & C2_INDEX != 0 {
                 next_move_list.push((hand_index, C2_INDEX));
             }
@@ -2946,9 +2972,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             if empty_bit & A3_INDEX != 0 {
                 next_move_list.push((hand_index, A3_INDEX));
             }
-            if empty_bit & A4_INDEX != 0 {
-                next_move_list.push((hand_index, A4_INDEX));
-            }
+            // if empty_bit & A4_INDEX != 0 {
+            //     next_move_list.push((hand_index, A4_INDEX));
+            // }
             if empty_bit & B1_INDEX != 0 {
                 next_move_list.push((hand_index, B1_INDEX));
             }
@@ -2958,9 +2984,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             if empty_bit & B3_INDEX != 0 {
                 next_move_list.push((hand_index, B3_INDEX));
             }
-            if empty_bit & B4_INDEX != 0 {
-                next_move_list.push((hand_index, B4_INDEX));
-            }
+            // if empty_bit & B4_INDEX != 0 {
+            //     next_move_list.push((hand_index, B4_INDEX));
+            // }
             if empty_bit & C1_INDEX != 0 {
                 next_move_list.push((hand_index, C1_INDEX));
             }
@@ -2970,9 +2996,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             if empty_bit & C3_INDEX != 0 {
                 next_move_list.push((hand_index, C3_INDEX));
             }
-            if empty_bit & C4_INDEX != 0 {
-                next_move_list.push((hand_index, C4_INDEX));
-            }
+            // if empty_bit & C4_INDEX != 0 {
+            //     next_move_list.push((hand_index, C4_INDEX));
+            // }
         }
         // 2pゾウ
         if board.zb & E_HAND_MASK != 0 {
@@ -3058,7 +3084,7 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
     next_move_list
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn judge(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3084,7 +3110,7 @@ pub fn judge(
     0
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn eval_function(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3206,7 +3232,7 @@ pub fn eval_function(
     point
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn nega_alpha(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3250,7 +3276,7 @@ pub fn nega_alpha(
     }
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn nega_scout(
     board: &bit_board::bit_board::BitBoard,
     bef_board: &bit_board::bit_board::BitBoard,
@@ -3258,6 +3284,9 @@ pub fn nega_scout(
     depth: i32,
     mut alpha: i32,
     beta: i32,
+    node_count: &mut i32,
+    cut_count: &mut i32,
+    search_count: &mut i32,
 ) -> Node {
     let mut best_move: (i32, i32) = (0, 0);
     // 根のノードの場合、静的評価
@@ -3279,15 +3308,12 @@ pub fn nega_scout(
     // 次の打てる手の取得
     let mut next_move_list: Vec<(i32, i32)> = next_move_list(board, is_player1);
     let move_cnt = next_move_list.len();
-    if move_cnt == 0 {
-        print!("{}", board);
-    }
     let mut sorted_next_move_list: Vec<(i32, i32)> = Vec::with_capacity(move_cnt);
     let mut max_point: i32 = LOSE_POINT;
-    // 浅い探索で最もよさそうな手を選択（negaalphaの5手読み）
+    // 浅い探索で最もよさそうな手を選択（negaalpha）
     // 最初の手の探索
-    let first_move = next_move_list[move_cnt - 1];
-    let first_board = make_moved_board(board, first_move, is_player1);
+    best_move = next_move_list[move_cnt - 1];
+    let first_board = make_moved_board(board, best_move, is_player1);
     let first_node = nega_alpha(
         &first_board,
         &board,
@@ -3299,7 +3325,7 @@ pub fn nega_scout(
     point = -first_node.point;
     if max_point < point {
         max_point = point;
-        best_move = first_move;
+        best_move = best_move;
     }
     // 2手目以降の探索
     next_move_list.remove(next_move_list.len() - 1);
@@ -3325,12 +3351,25 @@ pub fn nega_scout(
     // negascout
     // 最初のみ普通に探索
     let next_board = make_moved_board(board, best_move, is_player1);
-    let next_node = nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
+    let next_node = nega_scout(
+        &next_board,
+        &board,
+        !is_player1,
+        depth - 1,
+        -beta,
+        -alpha,
+        node_count,
+        cut_count,
+        search_count,
+    );
     point = -next_node.point;
+    *node_count += 1;
+    *search_count += 1;
 
-    if beta <= point {
-        //return next_node;
-    }
+    // if beta <= point {
+    //     *cut_count += 1;
+    //     return next_node;
+    // }
 
     if point > alpha {
         alpha = point;
@@ -3340,27 +3379,47 @@ pub fn nega_scout(
     // ２つ目以降の手はnullwindowsearchで確認のみ行う
     for next_move in sorted_next_move_list {
         let next_board = make_moved_board(board, next_move, is_player1);
-        let next_node = nega_scout(
+        let mut next_node = nega_scout(
             &next_board,
             &board,
             !is_player1,
             depth - 1,
             -alpha - 1,
             -alpha,
+            node_count,
+            cut_count,
+            search_count,
         );
         point = -next_node.point;
 
+        *node_count += 1;
+
         if beta <= point {
+            *cut_count += 1;
+            //next_node.point = if point < max_point { max_point } else { point };
             //return next_node;
             break;
         }
         // failed highの場合再探索
+        *search_count += 1;
         if alpha < point {
             alpha = point;
-            let next_node = nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
+            let mut next_node = nega_scout(
+                &next_board,
+                &board,
+                !is_player1,
+                depth - 1,
+                -beta,
+                -alpha,
+                node_count,
+                cut_count,
+                search_count,
+            );
             point = -next_node.point;
 
             if beta <= point {
+                *cut_count += 1;
+                //next_node.point = if point < max_point { max_point } else { point };
                 //return next_node;
                 break;
             }
@@ -3383,7 +3442,7 @@ pub struct Node {
     point: i32,
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub fn get_board_name(i: i32) -> String {
     match i {
         A1_INDEX => "A1".to_string(),
