@@ -80,7 +80,7 @@ const WIN_POINT: i32 = 10000;
 const LOSE_POINT: i32 = -10000;
 
 // パラメータ
-const DEPTH: i32 = 7;
+const DEPTH: i32 = 9;
 const SHALLOW_DEPTH: i32 = 5;
 const HOST_NAME: &str = "localhost";
 //const HOST_NAME: &str = "192.168.11.8";
@@ -189,21 +189,23 @@ fn main() {
                         }
 
                         // 探索
-                        let mut node_count = 0;
-                        let mut cut_count = 0;
-                        let mut search_count = 0;
+                        // let mut node_count = 0;
+                        // let mut cut_count = 0;
+                        // let mut search_count = 0;
                         let start = Instant::now();
-                        best_node = nega_scout(
-                            &board,
-                            &bef_board,
-                            is_player1,
-                            depth,
-                            -50000,
-                            50000,
-                            &mut node_count,
-                            &mut cut_count,
-                            &mut search_count,
-                        );
+                        // best_node = nega_scout(
+                        //     &board,
+                        //     &bef_board,
+                        //     is_player1,
+                        //     depth,
+                        //     -50000,
+                        //     50000,
+                        //     &mut node_count,
+                        //     &mut cut_count,
+                        //     &mut search_count,
+                        // );
+                        best_node =
+                            nega_scout(&board, &bef_board, is_player1, depth, -50000, 50000);
                         let end = start.elapsed();
 
                         // 自分の手を送信
@@ -244,13 +246,13 @@ fn main() {
                             p2_move_count,
                             p1_move_count + p2_move_count,
                         );
-                        println!(
-                            "all:{}, cut:{}, all-cut:{}, cut/all:{}",
-                            node_count,
-                            cut_count,
-                            search_count,
-                            100 * cut_count / node_count
-                        );
+                        // println!(
+                        //     "all:{}, cut:{}, all-cut:{}, cut/all:{}",
+                        //     node_count,
+                        //     cut_count,
+                        //     search_count,
+                        //     100 * cut_count / node_count
+                        // );
                         //println!("-------------------");
 
                         //相手のターンが終わるまで待つ
@@ -3172,16 +3174,31 @@ pub fn eval_function(
             } else {
                 -H_BOARD_POINT
             };
+            point += if board.hb & pb2_board != 0 {
+                -H_BOARD_POINT
+            } else {
+                H_BOARD_POINT
+            };
             point += if board.hb & pb1_hand != 0 {
                 H_HAND_POINT
             } else {
                 -H_HAND_POINT
+            };
+            point += if board.hb & pb2_hand != 0 {
+                -H_HAND_POINT
+            } else {
+                H_HAND_POINT
             };
             // ニワトリの得点
             point += if board.hb & pb1_board != 0 {
                 N_BOARD_POINT
             } else {
                 -N_BOARD_POINT
+            };
+            point += if board.hb & pb2_board != 0 {
+                -N_BOARD_POINT
+            } else {
+                N_BOARD_POINT
             };
         }
     }
@@ -3229,7 +3246,12 @@ pub fn eval_function(
     } else {
         K_HAND_POINT
     };
-    point
+
+    if is_player1 {
+        return point;
+    } else {
+        return -point;
+    }
 }
 
 #[inline(always)]
@@ -3284,9 +3306,9 @@ pub fn nega_scout(
     depth: i32,
     mut alpha: i32,
     beta: i32,
-    node_count: &mut i32,
-    cut_count: &mut i32,
-    search_count: &mut i32,
+    // node_count: &mut i32,
+    // cut_count: &mut i32,
+    // search_count: &mut i32,
 ) -> Node {
     let mut best_move: (i32, i32) = (0, 0);
     // 根のノードの場合、静的評価
@@ -3304,131 +3326,146 @@ pub fn nega_scout(
         }
         return Node { best_move, point };
     }
-
-    // 次の打てる手の取得
-    let mut next_move_list: Vec<(i32, i32)> = next_move_list(board, is_player1);
-    let move_cnt = next_move_list.len();
-    let mut sorted_next_move_list: Vec<(i32, i32)> = Vec::with_capacity(move_cnt);
-    let mut max_point: i32 = LOSE_POINT;
-    // 浅い探索で最もよさそうな手を選択（negaalpha）
-    // 最初の手の探索
-    best_move = next_move_list[move_cnt - 1];
-    let first_board = make_moved_board(board, best_move, is_player1);
-    let first_node = nega_alpha(
-        &first_board,
-        &board,
-        !is_player1,
-        SHALLOW_DEPTH,
-        -beta,
-        -alpha,
-    );
-    point = -first_node.point;
-    if max_point < point {
-        max_point = point;
-        best_move = best_move;
-    }
-    // 2手目以降の探索
-    next_move_list.remove(next_move_list.len() - 1);
-    for next_move in next_move_list {
-        let next_board = make_moved_board(board, next_move, is_player1);
-        let next_node = nega_alpha(
-            &next_board,
+    if depth > SHALLOW_DEPTH {
+        // 次の打てる手の取得
+        let mut next_move_list: Vec<(i32, i32)> = next_move_list(board, is_player1);
+        let move_cnt = next_move_list.len();
+        let mut sorted_next_move_list: Vec<(i32, i32)> = Vec::with_capacity(move_cnt);
+        let mut max_point: i32 = LOSE_POINT;
+        // 浅い探索で最もよさそうな手を選択（negaalpha）
+        // 最初の手の探索
+        best_move = next_move_list[move_cnt - 1];
+        let first_board = make_moved_board(board, best_move, is_player1);
+        let first_node = nega_alpha(
+            &first_board,
             &board,
             !is_player1,
             SHALLOW_DEPTH,
             -beta,
             -alpha,
         );
-        point = -next_node.point;
+        point = -first_node.point;
         if max_point < point {
-            sorted_next_move_list.push(best_move);
             max_point = point;
-            best_move = next_move;
-        } else {
-            sorted_next_move_list.push(next_move);
+            best_move = best_move;
         }
-    }
-    // negascout
-    // 最初のみ普通に探索
-    let next_board = make_moved_board(board, best_move, is_player1);
-    let next_node = nega_scout(
-        &next_board,
-        &board,
-        !is_player1,
-        depth - 1,
-        -beta,
-        -alpha,
-        node_count,
-        cut_count,
-        search_count,
-    );
-    point = -next_node.point;
-    *node_count += 1;
-    *search_count += 1;
-
-    // if beta <= point {
-    //     *cut_count += 1;
-    //     return next_node;
-    // }
-
-    if point > alpha {
-        alpha = point;
-    }
-    let mut max_point = point;
-
-    // ２つ目以降の手はnullwindowsearchで確認のみ行う
-    for next_move in sorted_next_move_list {
-        let next_board = make_moved_board(board, next_move, is_player1);
-        let mut next_node = nega_scout(
+        // 2手目以降の探索
+        next_move_list.remove(next_move_list.len() - 1);
+        for next_move in next_move_list {
+            let next_board = make_moved_board(board, next_move, is_player1);
+            let next_node = nega_alpha(
+                &next_board,
+                &board,
+                !is_player1,
+                SHALLOW_DEPTH,
+                -beta,
+                -alpha,
+            );
+            point = -next_node.point;
+            if max_point < point {
+                sorted_next_move_list.push(best_move);
+                max_point = point;
+                best_move = next_move;
+            } else {
+                sorted_next_move_list.push(next_move);
+            }
+        }
+        // negascout
+        // 最初のみ普通に探索
+        let next_board = make_moved_board(board, best_move, is_player1);
+        let next_node = nega_scout(
             &next_board,
             &board,
             !is_player1,
             depth - 1,
-            -alpha - 1,
+            -beta,
             -alpha,
-            node_count,
-            cut_count,
-            search_count,
+            // node_count,
+            // cut_count,
+            // search_count,
         );
         point = -next_node.point;
+        // *node_count += 1;
+        // *search_count += 1;
 
-        *node_count += 1;
+        // if beta <= point {
+        //     *cut_count += 1;
+        //     return next_node;
+        // }
 
-        if beta <= point {
-            *cut_count += 1;
-            //next_node.point = if point < max_point { max_point } else { point };
-            //return next_node;
-            break;
-        }
-        // failed highの場合再探索
-        *search_count += 1;
-        if alpha < point {
+        if point > alpha {
             alpha = point;
-            let mut next_node = nega_scout(
+        }
+        let mut max_point = point;
+
+        // ２つ目以降の手はnullwindowsearchで確認のみ行う
+        for next_move in sorted_next_move_list {
+            let next_board = make_moved_board(board, next_move, is_player1);
+            let next_node = nega_scout(
                 &next_board,
                 &board,
                 !is_player1,
                 depth - 1,
-                -beta,
+                -alpha - 1,
                 -alpha,
-                node_count,
-                cut_count,
-                search_count,
+                // node_count,
+                // cut_count,
+                // search_count,
             );
             point = -next_node.point;
 
+            //*node_count += 1;
+
             if beta <= point {
-                *cut_count += 1;
+                // *cut_count += 1;
                 //next_node.point = if point < max_point { max_point } else { point };
                 //return next_node;
                 break;
             }
+            // failed highの場合再探索
+            // *search_count += 1;
             if alpha < point {
                 alpha = point;
+                let next_node = nega_scout(
+                    &next_board,
+                    &board,
+                    !is_player1,
+                    depth - 1,
+                    -beta,
+                    -alpha,
+                    // node_count,
+                    // cut_count,
+                    // search_count,
+                );
+                point = -next_node.point;
+
+                if beta <= point {
+                    //*cut_count += 1;
+                    //next_node.point = if point < max_point { max_point } else { point };
+                    //return next_node;
+                    break;
+                }
+                if alpha < point {
+                    alpha = point;
+                }
+            }
+            if max_point < point {
+                max_point = point;
             }
         }
-        if max_point < point {
-            max_point = point;
+    } else {
+        let next_move_list: Vec<(i32, i32)> = next_move_list(board, is_player1);
+        for next_move in next_move_list {
+            let next_board = make_moved_board(board, next_move, is_player1);
+            let next_node = nega_alpha(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
+            point = -next_node.point;
+            if point > alpha {
+                alpha = point;
+                best_move = next_move;
+            }
+            if alpha >= beta {
+                break;
+            }
         }
     }
     Node {
