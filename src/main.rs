@@ -80,7 +80,7 @@ const WIN_POINT: i32 = 10000;
 const LOSE_POINT: i32 = -10000;
 
 // パラメータ
-const DEPTH: i32 = 9;
+const DEPTH: i32 = 11;
 const SHALLOW_DEPTH: i32 = 5;
 const HOST_NAME: &str = "localhost";
 //const HOST_NAME: &str = "192.168.11.8";
@@ -122,9 +122,9 @@ fn main() {
                     is_player1 = !is_player1;
                 }
                 let mut bef_board = bit_board::bit_board::BitBoard {
-                    pb1: 0b000_000_000_010,
-                    pb2: 0b010_000_000_000,
-                    lb: 0b010_000_000_010,
+                    pb1: 0b000_000_010_000,
+                    pb2: 0b000_010_000_000,
+                    lb: 0b000_010_010_000,
                     kb: 0,
                     zb: 0,
                     hb: 0,
@@ -183,9 +183,9 @@ fn main() {
                         {
                             depth = depth;
                         } else if p1_hand_count + p2_hand_count <= 4 {
-                            depth = depth - 1;
-                        } else {
                             depth = depth - 2;
+                        } else {
+                            depth = depth - 4;
                         }
 
                         // 探索
@@ -223,13 +223,6 @@ fn main() {
                         let next_board = make_moved_board(&board, best_node.best_move, is_player1);
                         let point = judge(&next_board, &clone_board, is_player1);
                         bef_board = clone_board;
-                        if point == WIN_POINT {
-                            println!("you win!");
-                            break;
-                        } else if point == LOSE_POINT {
-                            println!("you lose!");
-                            break;
-                        }
 
                         println!(
                             "{}, point:{:>05}, d:{}, time:{}.{}s ({}), hand count:{:>01}+{:>01}={:>01}, move count:{:>02}+{:>02}={:>02}",
@@ -253,7 +246,16 @@ fn main() {
                         //     search_count,
                         //     100 * cut_count / node_count
                         // );
+                        // println!("{:#?}", board);
                         //println!("-------------------");
+
+                        if point == WIN_POINT {
+                            println!("you win!");
+                            break;
+                        } else if point == LOSE_POINT {
+                            println!("you lose!");
+                            break;
+                        }
 
                         //相手のターンが終わるまで待つ
                         loop {
@@ -3821,6 +3823,37 @@ fn test3_make_moved_board() {
     };
     assert_eq!(moved_board, board);
 }
+
+// #[test]
+// fn test1_nega_scout() {
+//     let board = bit_board::bit_board::BitBoard {
+//         pb1: 13568,
+//         pb2: 1835024,
+//         lb: 1040,
+//         kb: 1056768,
+//         zb: 524544,
+//         hb: 266240,
+//         nb: 0,
+//     };
+//     let bef_board = bit_board::bit_board::BitBoard {
+//         pb1: 29696,
+//         pb2: 1835024,
+//         lb: 1040,
+//         kb: 1056768,
+//         zb: 540672,
+//         hb: 266240,
+//         nb: 0,
+//     };
+//     let is_player1 = false;
+//     let depth = 13;
+//     println!("{}", board);
+//     println!("{}", bef_board);
+//     let best_node = nega_scout(&board, &bef_board, is_player1, depth, -50000, 50000);
+//     print!(
+//         "{}, {}, {}",
+//         best_node.best_move.0, best_node.best_move.1, best_node.point
+//     );
+//}
 
 // #[test]
 // fn test1_eval_finction() {
