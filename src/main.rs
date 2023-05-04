@@ -80,8 +80,8 @@ const WIN_POINT: i32 = 10000;
 const LOSE_POINT: i32 = -10000;
 
 // パラメータ
-const DEPTH: i32 = 9;
-const SHALLOW_DEPTH: i32 = 3;
+const DEPTH: i32 = 7;
+const SHALLOW_DEPTH: i32 = 1;
 const HOST_NAME: &str = "localhost";
 //const HOST_NAME: &str = "192.168.11.8";
 const PORT_NUM: i32 = 4444;
