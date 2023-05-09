@@ -81,11 +81,12 @@ const LOSE_POINT: i32 = -10000;
 
 // パラメータ
 const DEPTH: i32 = 11;
-const SHALLOW_DEPTH: i32 = 5;
+// const SHALLOW_DEPTH: i32 = 5;
 const HOST_NAME: &str = "localhost";
 //const HOST_NAME: &str = "192.168.11.8";
 const PORT_NUM: i32 = 4444;
 
+// cargo run --release
 fn main() {
     // let start = Instant::now();
     // let end = start.elapsed();
@@ -122,9 +123,9 @@ fn main() {
                     is_player1 = !is_player1;
                 }
                 let mut bef_board = bit_board::bit_board::BitBoard {
-                    pb1: 0b000_000_010_000,
-                    pb2: 0b000_010_000_000,
-                    lb: 0b000_010_010_000,
+                    pb1: B3_INDEX,
+                    pb2: B2_INDEX,
+                    lb: B2_INDEX | B3_INDEX,
                     kb: 0,
                     zb: 0,
                     hb: 0,
@@ -189,21 +190,7 @@ fn main() {
                         }
 
                         // 探索
-                        // let mut node_count = 0;
-                        // let mut cut_count = 0;
-                        // let mut search_count = 0;
                         let start = Instant::now();
-                        // best_node = nega_scout(
-                        //     &board,
-                        //     &bef_board,
-                        //     is_player1,
-                        //     depth,
-                        //     -50000,
-                        //     50000,
-                        //     &mut node_count,
-                        //     &mut cut_count,
-                        //     &mut search_count,
-                        // );
                         best_node =
                             nega_scout(&board, &bef_board, is_player1, depth, -50000, 50000);
                         let end = start.elapsed();
@@ -224,30 +211,28 @@ fn main() {
                         let point = judge(&next_board, &clone_board, is_player1);
                         bef_board = clone_board;
 
-                        println!(
-                            "{}, point:{:>05}, d:{}, time:{}.{}s ({}), hand count:{:>01}+{:>01}={:>01}, move count:{:>02}+{:>02}={:>02}",
-                            move_str,
-                            best_node.point,
-                            depth,
-                            end.as_nanos() / 1000000000,
-                            end.as_nanos() / 1000000 - end.as_nanos() / 1000000000,
-                            end.as_nanos() ,
-                            p1_hand_count,
-                            p2_hand_count,
-                            p1_hand_count + p2_hand_count,
-                            p1_move_count,
-                            p2_move_count,
-                            p1_move_count + p2_move_count,
-                        );
                         // println!(
-                        //     "all:{}, cut:{}, all-cut:{}, cut/all:{}",
-                        //     node_count,
-                        //     cut_count,
-                        //     search_count,
-                        //     100 * cut_count / node_count
+                        //     "{}, point:{:>05}, d:{}, time:{}.{}s ({}), hand count:{:>01}+{:>01}={:>01}, move count:{:>02}+{:>02}={:>02}",
+                        //     move_str,
+                        //     best_node.point,
+                        //     depth,
+                        //     end.as_nanos() / 1000000000,
+                        //     end.as_nanos() / 1000000 - end.as_nanos() / 1000000000,
+                        //     end.as_nanos() ,
+                        //     p1_hand_count,
+                        //     p2_hand_count,
+                        //     p1_hand_count + p2_hand_count,
+                        //     p1_move_count,
+                        //     p2_move_count,
+                        //     p1_move_count + p2_move_count,
                         // );
-                        // println!("{:#?}", board);
-                        //println!("-------------------");
+                        println!(
+                            "{}→{}|{}秒|{}手読み",
+                            &get_board_name(best_node.best_move.0),
+                            &get_board_name(best_node.best_move.1),
+                            end.as_nanos() / 1000000000,
+                            depth
+                        );
 
                         if point == WIN_POINT {
                             println!("you win!");
@@ -3256,6 +3241,52 @@ pub fn eval_function(
     }
 }
 
+// 手の並び替え
+pub fn move_ordering(
+    board: &bit_board::bit_board::BitBoard,
+    is_player1: bool,
+    move_list: Vec<(i32, i32)>,
+) -> Vec<(i32, i32)> {
+    let mut next_moves_list: Vec<(i32, i32)> = Vec::with_capacity(move_list.len());
+    let mut best_moves: (i32, i32) = (0, 0); // ダミー（最後にもっともよい手で置き換えられる）
+    let mut min_kiki_cnt: u32 = 100000;
+    let mut is_lose: bool = false;
+    for moves in move_list {
+        let mut kiki_cnt: u32 = 0;
+        let next_board: bit_board::bit_board::BitBoard = make_moved_board(board, moves, is_player1);
+        let point: i32 = judge(&next_board, board, !is_player1);
+        if is_lose {
+            // 自分の手で勝てる手があった場合、残りの手の利きはカウントしない
+            next_moves_list.push(moves);
+        } else if point == LOSE_POINT {
+            // 自分の手で勝っている場合、その手をもっともよい手とする
+            next_moves_list.push(moves);
+            best_moves = moves;
+            is_lose = !is_lose;
+        } else {
+            let hand_mask: i32 = if is_player1 { E_HAND_MASK } else { D_HAND_MASK };
+            // 相手の打てる手の利きをカウント
+            let next_move_list: Vec<(i32, i32)> = next_move_list(&next_board, !is_player1);
+            for next_moves in next_move_list {
+                if next_moves.0 & hand_mask == 0 {
+                    kiki_cnt += 1;
+                }
+            }
+            // 利きのカウントを更新する
+            if kiki_cnt < min_kiki_cnt {
+                min_kiki_cnt = kiki_cnt;
+                next_moves_list.push(best_moves);
+                best_moves = moves;
+            } else {
+                next_moves_list.push(moves);
+            }
+        }
+    }
+    // 先頭をもっともよい手に置き換える
+    next_moves_list[0] = best_moves;
+    return next_moves_list;
+}
+
 #[inline(always)]
 pub fn nega_alpha(
     board: &bit_board::bit_board::BitBoard,
@@ -3308,9 +3339,6 @@ pub fn nega_scout(
     depth: i32,
     mut alpha: i32,
     beta: i32,
-    // node_count: &mut i32,
-    // cut_count: &mut i32,
-    // search_count: &mut i32,
 ) -> Node {
     let mut best_move: (i32, i32) = (0, 0);
     // 根のノードの場合、静的評価
@@ -3328,81 +3356,31 @@ pub fn nega_scout(
         }
         return Node { best_move, point };
     }
-    if depth > SHALLOW_DEPTH {
-        // 次の打てる手の取得
-        let mut next_move_list: Vec<(i32, i32)> = next_move_list(board, is_player1);
-        let move_cnt = next_move_list.len();
-        let mut sorted_next_move_list: Vec<(i32, i32)> = Vec::with_capacity(move_cnt);
-        let mut max_point: i32 = LOSE_POINT;
-        // 浅い探索で最もよさそうな手を選択（negaalpha）
-        // 最初の手の探索
-        best_move = next_move_list[move_cnt - 1];
-        let first_board = make_moved_board(board, best_move, is_player1);
-        let first_node = nega_alpha(
-            &first_board,
-            &board,
-            !is_player1,
-            SHALLOW_DEPTH,
-            -beta,
-            -alpha,
-        );
-        point = -first_node.point;
-        if max_point < point {
-            max_point = point;
-            best_move = best_move;
-        }
-        // 2手目以降の探索
-        next_move_list.remove(next_move_list.len() - 1);
-        for next_move in next_move_list {
-            let next_board = make_moved_board(board, next_move, is_player1);
-            let next_node = nega_alpha(
-                &next_board,
-                &board,
-                !is_player1,
-                SHALLOW_DEPTH,
-                -beta,
-                -alpha,
-            );
+    //if depth > SHALLOW_DEPTH {
+    // 次の打てる手の取得
+    let next_move_list: Vec<(i32, i32)> = next_move_list(board, is_player1);
+    // 次の手をソート
+    let sorted_next_move_list: Vec<(i32, i32)> = move_ordering(board, is_player1, next_move_list);
+
+    let mut is_first_move = true;
+    // negascout
+    for next_move in sorted_next_move_list {
+        let next_board = make_moved_board(board, next_move, is_player1);
+        if is_first_move {
+            // 最初のみ普通に探索
+            is_first_move = false;
+            let next_node = nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
             point = -next_node.point;
-            if max_point < point {
-                sorted_next_move_list.push(best_move);
-                max_point = point;
+
+            if alpha < point {
+                alpha = point;
                 best_move = next_move;
-            } else {
-                sorted_next_move_list.push(next_move);
             }
-        }
-        // negascout
-        // 最初のみ普通に探索
-        let next_board = make_moved_board(board, best_move, is_player1);
-        let next_node = nega_scout(
-            &next_board,
-            &board,
-            !is_player1,
-            depth - 1,
-            -beta,
-            -alpha,
-            // node_count,
-            // cut_count,
-            // search_count,
-        );
-        point = -next_node.point;
-        // *node_count += 1;
-        // *search_count += 1;
-
-        // if beta <= point {
-        //     *cut_count += 1;
-        //     return next_node;
-        // }
-
-        if point > alpha {
-            alpha = point;
-        }
-        let mut max_point = point;
-
-        // ２つ目以降の手はnullwindowsearchで確認のみ行う
-        for next_move in sorted_next_move_list {
-            let next_board = make_moved_board(board, next_move, is_player1);
+            if beta <= point {
+                break;
+            }
+        } else {
+            // ２つ目以降の手はnull-window-searchで確認のみ行う
             let next_node = nega_scout(
                 &next_board,
                 &board,
@@ -3410,70 +3388,48 @@ pub fn nega_scout(
                 depth - 1,
                 -alpha - 1,
                 -alpha,
-                // node_count,
-                // cut_count,
-                // search_count,
             );
             point = -next_node.point;
-
-            //*node_count += 1;
-
-            if beta <= point {
-                // *cut_count += 1;
-                //next_node.point = if point < max_point { max_point } else { point };
-                //return next_node;
-                break;
-            }
             // failed highの場合再探索
-            // *search_count += 1;
-            if alpha < point {
-                alpha = point;
-                let next_node = nega_scout(
-                    &next_board,
-                    &board,
-                    !is_player1,
-                    depth - 1,
-                    -beta,
-                    -alpha,
-                    // node_count,
-                    // cut_count,
-                    // search_count,
-                );
+            if alpha < point && point < beta {
+                let next_node =
+                    nega_scout(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
                 point = -next_node.point;
-
-                if beta <= point {
-                    //*cut_count += 1;
-                    //next_node.point = if point < max_point { max_point } else { point };
-                    //return next_node;
-                    break;
-                }
-                if alpha < point {
-                    alpha = point;
-                }
             }
-            if max_point < point {
-                max_point = point;
-            }
-        }
-    } else {
-        let next_move_list: Vec<(i32, i32)> = next_move_list(board, is_player1);
-        for next_move in next_move_list {
-            let next_board = make_moved_board(board, next_move, is_player1);
-            let next_node = nega_alpha(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
-            point = -next_node.point;
-            if point > alpha {
+            if alpha < point {
                 alpha = point;
                 best_move = next_move;
             }
-            if alpha >= beta {
+            if beta <= point {
                 break;
             }
         }
     }
-    Node {
+    // } else {
+    //     let next_move_list: Vec<(i32, i32)> = next_move_list(board, is_player1);
+    //     for next_move in next_move_list {
+    //         let next_board = make_moved_board(board, next_move, is_player1);
+    //         let next_node = nega_alpha(&next_board, &board, !is_player1, depth - 1, -beta, -alpha);
+    //         point = -next_node.point;
+    //         if point > alpha {
+    //             alpha = point;
+    //             best_move = next_move;
+    //         }
+    //         if alpha >= beta {
+    //             break;
+    //         }
+    //     }
+    // }
+
+    let result = Node {
         best_move,
         point: alpha,
-    }
+    };
+    // println!(
+    //     "{}, {}, {}, {}, {}, {}",
+    //     depth, best_move.0, best_move.1, alpha, beta, point
+    // );
+    return result;
 }
 
 pub struct Node {
@@ -3872,3 +3828,22 @@ fn test3_make_moved_board() {
 //     let point: i32 = eval_function(&board, &board, true);
 //     println!("{}", point);
 // }
+#[test]
+fn move_ordering_test() {
+    let board = bit_board::bit_board::BitBoard {
+        pb1: B3_INDEX | A4_INDEX | B4_INDEX | C4_INDEX,
+        pb2: A1_INDEX | B1_INDEX | C1_INDEX | B2_INDEX,
+        lb: B1_INDEX | B4_INDEX,
+        kb: A1_INDEX | C4_INDEX,
+        zb: C1_INDEX | A4_INDEX,
+        hb: B2_INDEX | B3_INDEX,
+        nb: 0,
+    };
+    println!("{}", board);
+    let is_player1 = true;
+    let move_list = next_move_list(&board, is_player1);
+    let ordering_moves = move_ordering(&board, is_player1, move_list);
+    println!("{}", ordering_moves[0].1);
+    //let next_moves = vec![];
+    //assert_eq!(next_moves, ordering_moves);
+}
