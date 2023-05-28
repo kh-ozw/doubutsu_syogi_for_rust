@@ -227,11 +227,12 @@ fn main() {
                         //     p1_move_count + p2_move_count,
                         // );
                         println!(
-                            "{}→{}|{}秒|{}手読み",
+                            "{}→{}|{}秒|評価値:{}",
                             &get_board_name(best_node.best_move.0),
                             &get_board_name(best_node.best_move.1),
                             end.as_nanos() / 1000000000,
-                            depth
+                            //depth,
+                            best_node.point
                         );
 
                         if point == WIN_POINT {
