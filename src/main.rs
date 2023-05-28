@@ -65,6 +65,10 @@ const D_TRY_MASK: i32 = 0b111;
 const E_TRY_MASK: i32 = 0b111 << 9;
 const D_HAND_MASK: i32 = 0b111111 << 12;
 const E_HAND_MASK: i32 = 0b111111 << 18;
+const LINE_1: i32 = 0b111;
+const LINE_2: i32 = 0b111 << 3;
+const LINE_3: i32 = 0b111 << 6;
+const LINE_4: i32 = 0b111 << 9;
 
 // コマの得点
 const H_BOARD_POINT: i32 = 10;
@@ -74,6 +78,14 @@ const Z_HAND_POINT: i32 = 62;
 const K_BOARD_POINT: i32 = 50;
 const K_HAND_POINT: i32 = 52;
 const N_BOARD_POINT: i32 = 60;
+const L1_LINE1_POINT: i32 = 60;
+const L1_LINE2_POINT: i32 = 30;
+const L1_LINE3_POINT: i32 = 20;
+const L1_LINE4_POINT: i32 = 10;
+const L2_LINE1_POINT: i32 = 10;
+const L2_LINE2_POINT: i32 = 20;
+const L2_LINE3_POINT: i32 = 30;
+const L2_LINE4_POINT: i32 = 60;
 
 // 勝敗判定時のポイント
 const WIN_POINT: i32 = 10000;
@@ -3233,6 +3245,34 @@ pub fn eval_function(
         -K_HAND_POINT
     } else {
         K_HAND_POINT
+    };
+
+    // 1pライオンの位置に応じた得点
+    let l1: i32 = pb1_board & board.lb;
+    point += if l1 & LINE_1 != 0 {
+        L1_LINE1_POINT
+    } else if l1 & LINE_2 != 0 {
+        L1_LINE2_POINT
+    } else if l1 & LINE_3 != 0 {
+        L1_LINE3_POINT
+    } else if l1 & LINE_4 != 0 {
+        L1_LINE4_POINT
+    } else {
+        0
+    };
+
+    // 2pライオンの位置に応じた得点
+    let l2: i32 = pb2_board & board.lb;
+    point += if l2 & LINE_1 != 0 {
+        -L2_LINE1_POINT
+    } else if l2 & LINE_2 != 0 {
+        -L2_LINE2_POINT
+    } else if l2 & LINE_3 != 0 {
+        -L2_LINE3_POINT
+    } else if l2 & LINE_4 != 0 {
+        -L2_LINE4_POINT
+    } else {
+        0
     };
 
     if is_player1 {
