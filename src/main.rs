@@ -1,3 +1,15 @@
+/*!
+
+これは自動で「どうぶつしょうぎ」の対戦ができるプログラムです。
+
+ソケット通信でどうぶつしょうぎサーバと通信するため、IPアドレスが必要になります。
+
+どうぶつしょうぎサーバから盤面情報を取得し、次の手を送信することで次の手を打つことができます。
+
+使用しているアルゴリズムは「[Negascout法](https://ja.wikipedia.org/wiki/Negascout)」です。
+
+*/
+
 #[warn(unused_variables)]
 use std::{
     io::{BufRead, BufReader, BufWriter, Write},
@@ -5,9 +17,18 @@ use std::{
     time::Instant,
 };
 
+/// ビットボード
 mod bit_board;
 
-// 盤面定数
+/// Negascout法の返却値
+/// - 最善手
+/// - 得点
+pub struct Node {
+    best_move: (i32, i32),
+    point: i32,
+}
+
+// 盤面の各マスに対応するbitboardの桁数
 const A1_INDEX_DEC: i32 = 0;
 const B1_INDEX_DEC: i32 = 1;
 const C1_INDEX_DEC: i32 = 2;
@@ -33,6 +54,7 @@ const E4_INDEX_DEC: i32 = 21;
 const E5_INDEX_DEC: i32 = 22;
 const E6_INDEX_DEC: i32 = 23;
 
+// 盤面の各マスに対応するビットマスク
 const A1_INDEX: i32 = 1 << 0;
 const B1_INDEX: i32 = 1 << 1;
 const C1_INDEX: i32 = 1 << 2;
@@ -58,7 +80,7 @@ const E4_INDEX: i32 = 1 << 21;
 const E5_INDEX: i32 = 1 << 22;
 const E6_INDEX: i32 = 1 << 23;
 
-// ビットマスク
+// 汎用ビットマスク
 const BOARD_MASK: i32 = 0b111_111_111_111;
 const HAND_MASK: i32 = 0b111111_111111 << 12;
 const D_TRY_MASK: i32 = 0b111;
@@ -70,7 +92,7 @@ const LINE_2: i32 = 0b111 << 3;
 const LINE_3: i32 = 0b111 << 6;
 const LINE_4: i32 = 0b111 << 9;
 
-// コマの得点
+// 各コマの得点
 const H_BOARD_POINT: i32 = 10;
 const H_HAND_POINT: i32 = 12;
 const Z_BOARD_POINT: i32 = 60;
@@ -91,15 +113,15 @@ const L2_LINE4_POINT: i32 = 60;
 const WIN_POINT: i32 = 10000;
 const LOSE_POINT: i32 = -10000;
 
-// パラメータ
-const DEPTH: i32 = 11;
-// const SHALLOW_DEPTH: i32 = 5;
+// ソケット通信設定
+const PORT_NUM: i32 = 4444;
 const HOST_NAME: &str = "localhost";
 //const HOST_NAME: &str = "192.168.11.8";
-const PORT_NUM: i32 = 4444;
 
 // cargo run --release
+/// メイン処理
 fn main() {
+    const DEPTH: i32 = 11;
     // let start = Instant::now();
     // let end = start.elapsed();
     // println!("{} :経過しました。", end.subsec_nanos());
@@ -117,7 +139,6 @@ fn main() {
             Ok(stream) => {
                 println!("Connection Ok.");
                 // ソケット通信での処理
-
                 let mut reader = BufReader::new(&stream);
                 let mut writer = BufWriter::new(&stream);
 
@@ -239,11 +260,11 @@ fn main() {
                         //     p1_move_count + p2_move_count,
                         // );
                         println!(
-                            "{}→{}|{}秒|評価値:{}",
+                            "{}→{}|{}秒|{}手|評価値:{}",
                             &get_board_name(best_node.best_move.0),
                             &get_board_name(best_node.best_move.1),
                             end.as_nanos() / 1000000000,
-                            //depth,
+                            depth,
                             best_node.point
                         );
 
@@ -274,12 +295,15 @@ fn main() {
     }
 }
 
+/// サーバへ送るための関数
 pub fn write_socket(writer: &mut BufWriter<&TcpStream>, msg: &str) {
     let buf = format!("{}\n", msg);
     writer.write(buf.as_bytes()).expect("Send failure.");
     let _ = writer.flush();
 }
 
+/// サーバから受け取った盤面情報をbitboardに変換する関数
+#[inline(always)]
 pub fn make_bit_board(board_vec: &mut Vec<u8>) -> bit_board::bit_board::BitBoard {
     let mut pb1: i32 = 0;
     let mut pb2: i32 = 0;
@@ -296,8 +320,34 @@ pub fn make_bit_board(board_vec: &mut Vec<u8>) -> bit_board::bit_board::BitBoard
     for iter in board {
         let b_iter = iter.trim().as_bytes();
         if b_iter[3] != b'-' {
-            //ex. "A1 g2"
-            let p = piece_to_pos((b_iter[0], b_iter[1]));
+            //ex. b_iter="A1" => p=0
+            let p: i32 = match (b_iter[0], b_iter[1]) {
+                (b'A', b'1') => A1_INDEX_DEC,
+                (b'B', b'1') => B1_INDEX_DEC,
+                (b'C', b'1') => C1_INDEX_DEC,
+                (b'A', b'2') => A2_INDEX_DEC,
+                (b'B', b'2') => B2_INDEX_DEC,
+                (b'C', b'2') => C2_INDEX_DEC,
+                (b'A', b'3') => A3_INDEX_DEC,
+                (b'B', b'3') => B3_INDEX_DEC,
+                (b'C', b'3') => C3_INDEX_DEC,
+                (b'A', b'4') => A4_INDEX_DEC,
+                (b'B', b'4') => B4_INDEX_DEC,
+                (b'C', b'4') => C4_INDEX_DEC,
+                (b'D', b'1') => D1_INDEX_DEC,
+                (b'D', b'2') => D2_INDEX_DEC,
+                (b'D', b'3') => D3_INDEX_DEC,
+                (b'D', b'4') => D4_INDEX_DEC,
+                (b'D', b'5') => D5_INDEX_DEC,
+                (b'D', b'6') => D6_INDEX_DEC,
+                (b'E', b'1') => E1_INDEX_DEC,
+                (b'E', b'2') => E2_INDEX_DEC,
+                (b'E', b'3') => E3_INDEX_DEC,
+                (b'E', b'4') => E4_INDEX_DEC,
+                (b'E', b'5') => E5_INDEX_DEC,
+                (b'E', b'6') => E6_INDEX_DEC,
+                _ => 0,
+            };
             if b_iter[4] == b'1' {
                 pb1 |= 1 << p;
             } else if b_iter[4] == b'2' {
@@ -325,38 +375,47 @@ pub fn make_bit_board(board_vec: &mut Vec<u8>) -> bit_board::bit_board::BitBoard
     }
 }
 
-//pub fn make_board_map(board: &bit_board::bit_board::BitBoard) -> &mut Vec<u8> {}
-
-pub fn piece_to_pos(s: (u8, u8)) -> i32 {
-    match s {
-        (b'A', b'1') => A1_INDEX_DEC,
-        (b'B', b'1') => B1_INDEX_DEC,
-        (b'C', b'1') => C1_INDEX_DEC,
-        (b'A', b'2') => A2_INDEX_DEC,
-        (b'B', b'2') => B2_INDEX_DEC,
-        (b'C', b'2') => C2_INDEX_DEC,
-        (b'A', b'3') => A3_INDEX_DEC,
-        (b'B', b'3') => B3_INDEX_DEC,
-        (b'C', b'3') => C3_INDEX_DEC,
-        (b'A', b'4') => A4_INDEX_DEC,
-        (b'B', b'4') => B4_INDEX_DEC,
-        (b'C', b'4') => C4_INDEX_DEC,
-        (b'D', b'1') => D1_INDEX_DEC,
-        (b'D', b'2') => D2_INDEX_DEC,
-        (b'D', b'3') => D3_INDEX_DEC,
-        (b'D', b'4') => D4_INDEX_DEC,
-        (b'D', b'5') => D5_INDEX_DEC,
-        (b'D', b'6') => D6_INDEX_DEC,
-        (b'E', b'1') => E1_INDEX_DEC,
-        (b'E', b'2') => E2_INDEX_DEC,
-        (b'E', b'3') => E3_INDEX_DEC,
-        (b'E', b'4') => E4_INDEX_DEC,
-        (b'E', b'5') => E5_INDEX_DEC,
-        (b'E', b'6') => E6_INDEX_DEC,
-        _ => 0,
+/// 盤面の各マスに対応するビットマスクから文字列に変換する関数
+#[inline(always)]
+pub fn get_board_name(i: i32) -> String {
+    match i {
+        A1_INDEX => "A1".to_string(),
+        A2_INDEX => "A2".to_string(),
+        A3_INDEX => "A3".to_string(),
+        A4_INDEX => "A4".to_string(),
+        B1_INDEX => "B1".to_string(),
+        B2_INDEX => "B2".to_string(),
+        B3_INDEX => "B3".to_string(),
+        B4_INDEX => "B4".to_string(),
+        C1_INDEX => "C1".to_string(),
+        C2_INDEX => "C2".to_string(),
+        C3_INDEX => "C3".to_string(),
+        C4_INDEX => "C4".to_string(),
+        D1_INDEX => "D1".to_string(),
+        D2_INDEX => "D2".to_string(),
+        D3_INDEX => "D3".to_string(),
+        D4_INDEX => "D4".to_string(),
+        D5_INDEX => "D5".to_string(),
+        D6_INDEX => "D6".to_string(),
+        E1_INDEX => "E1".to_string(),
+        E2_INDEX => "E2".to_string(),
+        E3_INDEX => "E3".to_string(),
+        E4_INDEX => "E4".to_string(),
+        E5_INDEX => "E5".to_string(),
+        E6_INDEX => "E6".to_string(),
+        _ => "".to_string(),
     }
 }
 
+/// 手を打った後の盤面を返す関数
+///
+/// 引数：
+/// - 盤面情報
+/// - 次の打つ手
+/// - プレイヤー情報
+///
+/// 返却値：
+/// - 次の手を打った後の盤面
 #[inline(always)]
 pub fn make_moved_board(
     bef_board: &bit_board::bit_board::BitBoard,
@@ -548,6 +607,14 @@ pub fn make_moved_board(
     board
 }
 
+/// 次の打てる手を返す関数
+///
+/// 引数：
+/// - 盤面情報
+///
+/// 返却値
+/// - 次の打てる手のリスト
+///
 #[inline(always)]
 pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) -> Vec<(i32, i32)> {
     let mut next_move_list: Vec<(i32, i32)> = vec![];
@@ -1701,9 +1768,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
         // 1pヒヨコ
         if board.hb & D_HAND_MASK != 0 {
             let hand_index: i32 = (board.hb & D_HAND_MASK) & -(board.hb & D_HAND_MASK);
-            // if empty_bit & A1_INDEX != 0 {
-            //     next_move_list.push((hand_index, A1_INDEX));
-            // }
+            if empty_bit & A1_INDEX != 0 {
+                next_move_list.push((hand_index, A1_INDEX));
+            }
             if empty_bit & A2_INDEX != 0 {
                 next_move_list.push((hand_index, A2_INDEX));
             }
@@ -1713,9 +1780,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             if empty_bit & A4_INDEX != 0 {
                 next_move_list.push((hand_index, A4_INDEX));
             }
-            // if empty_bit & B1_INDEX != 0 {
-            //     next_move_list.push((hand_index, B1_INDEX));
-            // }
+            if empty_bit & B1_INDEX != 0 {
+                next_move_list.push((hand_index, B1_INDEX));
+            }
             if empty_bit & B2_INDEX != 0 {
                 next_move_list.push((hand_index, B2_INDEX));
             }
@@ -1725,9 +1792,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             if empty_bit & B4_INDEX != 0 {
                 next_move_list.push((hand_index, B4_INDEX));
             }
-            // if empty_bit & C1_INDEX != 0 {
-            //     next_move_list.push((hand_index, C1_INDEX));
-            // }
+            if empty_bit & C1_INDEX != 0 {
+                next_move_list.push((hand_index, C1_INDEX));
+            }
             if empty_bit & C2_INDEX != 0 {
                 next_move_list.push((hand_index, C2_INDEX));
             }
@@ -2974,9 +3041,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             if empty_bit & A3_INDEX != 0 {
                 next_move_list.push((hand_index, A3_INDEX));
             }
-            // if empty_bit & A4_INDEX != 0 {
-            //     next_move_list.push((hand_index, A4_INDEX));
-            // }
+            if empty_bit & A4_INDEX != 0 {
+                next_move_list.push((hand_index, A4_INDEX));
+            }
             if empty_bit & B1_INDEX != 0 {
                 next_move_list.push((hand_index, B1_INDEX));
             }
@@ -2986,9 +3053,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             if empty_bit & B3_INDEX != 0 {
                 next_move_list.push((hand_index, B3_INDEX));
             }
-            // if empty_bit & B4_INDEX != 0 {
-            //     next_move_list.push((hand_index, B4_INDEX));
-            // }
+            if empty_bit & B4_INDEX != 0 {
+                next_move_list.push((hand_index, B4_INDEX));
+            }
             if empty_bit & C1_INDEX != 0 {
                 next_move_list.push((hand_index, C1_INDEX));
             }
@@ -2998,9 +3065,9 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
             if empty_bit & C3_INDEX != 0 {
                 next_move_list.push((hand_index, C3_INDEX));
             }
-            // if empty_bit & C4_INDEX != 0 {
-            //     next_move_list.push((hand_index, C4_INDEX));
-            // }
+            if empty_bit & C4_INDEX != 0 {
+                next_move_list.push((hand_index, C4_INDEX));
+            }
         }
         // 2pゾウ
         if board.zb & E_HAND_MASK != 0 {
@@ -3086,6 +3153,19 @@ pub fn next_move_list(board: &bit_board::bit_board::BitBoard, is_player1: bool) 
     next_move_list
 }
 
+/// 勝敗判定をする関数
+///
+/// 引数：
+/// - 盤面情報
+/// - 直前の手を打つ前の盤面情報
+/// - プレイヤー情報
+///
+/// 返却値：
+/// - 以下のいずれかの数値
+///   - 勝ちの場合：WIN_POINT
+///   - 負けの場合：LOSE_POINT
+///   - それ以外：0
+///
 #[inline(always)]
 pub fn judge(
     board: &bit_board::bit_board::BitBoard,
@@ -3112,6 +3192,19 @@ pub fn judge(
     0
 }
 
+/// 盤面を評価する関数
+///
+/// 引数：
+/// - 盤面情報
+/// - 直前の手を打つ前の盤面情報
+/// - プレイヤー情報
+///
+/// 返却値：
+/// - 以下のいずれかの数値
+///   - 勝ちの場合：WIN_POINT
+///   - 負けの場合：LOSE_POINT
+///   - それ以外：盤面に基づいた得点
+///
 #[inline(always)]
 pub fn eval_function(
     board: &bit_board::bit_board::BitBoard,
@@ -3282,7 +3375,17 @@ pub fn eval_function(
     }
 }
 
-// 手の並び替え
+/// 次の打てる手をソートする関数
+///
+/// 引数：
+/// - 盤面情報
+/// - プレイヤー情報
+/// - 次の打てる手のリスト
+///
+/// 返却値：
+/// - 最もよい（可能性が高い）手を先頭に並び替えた次の打てる手のリスト
+///
+#[inline(always)]
 pub fn move_ordering(
     board: &bit_board::bit_board::BitBoard,
     is_player1: bool,
@@ -3328,6 +3431,19 @@ pub fn move_ordering(
     return next_moves_list;
 }
 
+/// Negaalpha法
+///
+/// 引数：
+/// - 盤面情報
+/// - 直前の手を打つ前の盤面情報
+/// - プレイヤー情報
+/// - 探索の深さ
+/// - アルファ値
+/// - ベータ値
+///
+/// 返却値；
+/// - 最善手とそれを打った時の得点
+///
 #[inline(always)]
 pub fn nega_alpha(
     board: &bit_board::bit_board::BitBoard,
@@ -3372,6 +3488,19 @@ pub fn nega_alpha(
     }
 }
 
+/// Negascout法
+///
+/// 引数：
+/// - 盤面情報
+/// - 直前の手を打つ前の盤面情報
+/// - プレイヤー情報
+/// - 探索の深さ
+/// - アルファ値
+/// - ベータ値
+///
+/// 返却値；
+/// - 最善手とそれを打った時の得点
+///
 #[inline(always)]
 pub fn nega_scout(
     board: &bit_board::bit_board::BitBoard,
@@ -3473,41 +3602,7 @@ pub fn nega_scout(
     return result;
 }
 
-pub struct Node {
-    best_move: (i32, i32),
-    point: i32,
-}
-
-#[inline(always)]
-pub fn get_board_name(i: i32) -> String {
-    match i {
-        A1_INDEX => "A1".to_string(),
-        A2_INDEX => "A2".to_string(),
-        A3_INDEX => "A3".to_string(),
-        A4_INDEX => "A4".to_string(),
-        B1_INDEX => "B1".to_string(),
-        B2_INDEX => "B2".to_string(),
-        B3_INDEX => "B3".to_string(),
-        B4_INDEX => "B4".to_string(),
-        C1_INDEX => "C1".to_string(),
-        C2_INDEX => "C2".to_string(),
-        C3_INDEX => "C3".to_string(),
-        C4_INDEX => "C4".to_string(),
-        D1_INDEX => "D1".to_string(),
-        D2_INDEX => "D2".to_string(),
-        D3_INDEX => "D3".to_string(),
-        D4_INDEX => "D4".to_string(),
-        D5_INDEX => "D5".to_string(),
-        D6_INDEX => "D6".to_string(),
-        E1_INDEX => "E1".to_string(),
-        E2_INDEX => "E2".to_string(),
-        E3_INDEX => "E3".to_string(),
-        E4_INDEX => "E4".to_string(),
-        E5_INDEX => "E5".to_string(),
-        E6_INDEX => "E6".to_string(),
-        _ => "".to_string(),
-    }
-}
+/// ここからテスト
 
 #[test]
 fn make_moved_board_test_base_move() {
