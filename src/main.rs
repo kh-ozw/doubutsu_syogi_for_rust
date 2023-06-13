@@ -3176,8 +3176,9 @@ pub fn judge(
     // 1pがライオンをとった時
     if board.lb & board.pb2 == 0 {
         return if is_player1 { WIN_POINT } else { LOSE_POINT };
+    }
     // 1pがライオンが取られた時
-    } else if board.lb & board.pb1 == 0 {
+    if board.lb & board.pb1 == 0 {
         return if is_player1 { LOSE_POINT } else { WIN_POINT };
     }
     // 1pトライ判定
@@ -3392,9 +3393,10 @@ pub fn move_ordering(
     move_list: Vec<(i32, i32)>,
 ) -> Vec<(i32, i32)> {
     let mut next_moves_list: Vec<(i32, i32)> = Vec::with_capacity(move_list.len());
-    let mut best_moves: (i32, i32) = (0, 0); // ダミー（最後にもっともよい手で置き換えられる）
     let mut min_kiki_cnt: u32 = 100000;
     let mut is_lose: bool = false;
+    let hand_mask: i32 = if is_player1 { E_HAND_MASK } else { D_HAND_MASK };
+
     for moves in move_list {
         let mut kiki_cnt: u32 = 0;
         let next_board: bit_board::bit_board::BitBoard = make_moved_board(board, moves, is_player1);
@@ -3404,11 +3406,9 @@ pub fn move_ordering(
             next_moves_list.push(moves);
         } else if point == LOSE_POINT {
             // 自分の手で勝っている場合、その手をもっともよい手とする
-            next_moves_list.push(moves);
-            best_moves = moves;
+            next_moves_list.insert(0, moves);
             is_lose = !is_lose;
         } else {
-            let hand_mask: i32 = if is_player1 { E_HAND_MASK } else { D_HAND_MASK };
             // 相手の打てる手の利きをカウント
             let next_move_list: Vec<(i32, i32)> = next_move_list(&next_board, !is_player1);
             for next_moves in next_move_list {
@@ -3419,15 +3419,13 @@ pub fn move_ordering(
             // 利きのカウントを更新する
             if kiki_cnt < min_kiki_cnt {
                 min_kiki_cnt = kiki_cnt;
-                next_moves_list.push(best_moves);
-                best_moves = moves;
+                // 先頭をもっともよい手に置き換える
+                next_moves_list.insert(0, moves);
             } else {
                 next_moves_list.push(moves);
             }
         }
     }
-    // 先頭をもっともよい手に置き換える
-    next_moves_list[0] = best_moves;
     return next_moves_list;
 }
 
@@ -3602,7 +3600,7 @@ pub fn nega_scout(
     return result;
 }
 
-/// ここからテスト
+// ここからテスト
 
 #[test]
 fn make_moved_board_test_base_move() {
